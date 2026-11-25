@@ -185,6 +185,8 @@ public final class DesktopSmokeExtension implements QuPathExtension {
         require("Live Prediction".equals(autoRetrain.getText()), "Missing expanded Live Prediction label");
         var previewSlot = autoRetrain.getParent();
         toggle.fire();
+        workspace.setAlwaysOnTop(true);
+        workspace.toFront();
         await(() -> workspace.getHeight() < 120, () -> {
             require(workspace.getScene().lookup("#training-body") == null, "Collapsed window still shows the editor");
             requireGeometry(x, y, width, toggle, buttonBounds);
@@ -195,6 +197,7 @@ public final class DesktopSmokeExtension implements QuPathExtension {
             autoRetrain.fire();
             snapshot("workspace-collapsed.png");
             captureTitle(workspace, "workspace-title.png");
+            workspace.setAlwaysOnTop(false);
             toggle.fire();
             await(() -> Math.abs(workspace.getHeight() - height) < 2, () -> {
                 requireGeometry(x, y, width, toggle, buttonBounds);
@@ -340,6 +343,8 @@ public final class DesktopSmokeExtension implements QuPathExtension {
         ((Button) workspace.getScene().lookup("#show-filters")).fire();
         var preview = visibleStage("CI Pixel Classifier · Filter preview");
         requireWindowIcon(preview);
+        preview.setAlwaysOnTop(true);
+        preview.toFront();
         var imageView = (ImageView) preview.getScene().lookup("#preview-feature-image");
         await(() -> imageView.getImage() != null, () -> {
             require(imageView.getImage().getWidth() > 0, "Feature preview returned an empty image");
@@ -350,6 +355,7 @@ public final class DesktopSmokeExtension implements QuPathExtension {
             require(imageView.getImage() != first, "Selecting another feature did not update the preview");
             snapshot(preview, "filters-dark.png");
             captureTitle(preview, "filters-title.png");
+            preview.setAlwaysOnTop(false);
             setTheme("Light");
             await(() -> true, () -> {
                 snapshot(preview, "filters-light.png");
