@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory)] [string] $QuPathConsole,
     [Parameter(Mandatory)] [string] $Image,
-    [string] $Annotations
+    [string] $Annotations,
+    [string] $ValidationImage
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot
@@ -51,6 +52,10 @@ PathPrefs.savePreferences()
     Invoke-QuPath 'bootstrap' @('-q', $pref, "-Dci.pixel.smoke.user=$userDir", 'script', $bootstrap)
     $launch = @('-q', $pref, "-Dci.pixel.smoke.output=$work", '-i', $imagePath)
     if ($annotationsPath) { $launch += "-Dci.pixel.smoke.annotations=$annotationsPath" }
+    if ($ValidationImage) {
+        $validationPath = (Resolve-Path -LiteralPath $ValidationImage).Path
+        $launch += "-Dci.pixel.smoke.validation-image=$validationPath"
+    }
     Invoke-QuPath 'train' $launch
     if (!(Test-Path (Join-Path $work 'trained.ok'))) {
         Get-Content (Join-Path $work 'error.txt') -ErrorAction SilentlyContinue | Write-Host

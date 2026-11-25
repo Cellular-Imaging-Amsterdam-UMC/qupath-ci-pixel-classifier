@@ -20,9 +20,13 @@ import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.TitledPane;
+import javafx.scene.control.TableView;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.input.PickResult;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 import javafx.util.Duration;
@@ -34,6 +38,9 @@ import qupath.lib.gui.prefs.QuPathStyleManager;
 import qupath.lib.gui.viewer.RegionFilter.StandardRegionFilters;
 import qupath.lib.gui.viewer.overlays.PixelClassificationOverlay;
 import qupath.lib.io.PathIO;
+import qupath.lib.images.ImageData;
+import qupath.lib.images.servers.ImageServerProvider;
+import qupath.lib.projects.ProjectImageEntry;
 import qupath.lib.objects.PathObjects;
 import qupath.lib.objects.classes.PathClass;
 import qupath.lib.projects.Projects;
@@ -58,6 +65,7 @@ public final class DesktopSmokeExtension implements QuPathExtension {
     private final Path output = Path.of(System.getProperty("ci.pixel.smoke.output"));
     private QuPathGUI qupath;
     private Stage workspace;
+    private ProjectImageEntry<BufferedImage> validationEntry;
 
     @Override
     public void installExtension(QuPathGUI gui) {
@@ -114,6 +122,21 @@ public final class DesktopSmokeExtension implements QuPathExtension {
         if (qupath.getImageData() != image)
             qupath.getViewer().setImageData(image);
 
+        var validationImage = System.getProperty("ci.pixel.smoke.validation-image");
+        if (validationImage != null) {
+            var server = ImageServerProvider.buildServer(validationImage, BufferedImage.class);
+            try (var heldOut = new ImageData<>(server, image.getImageType())) {
+                var annotationsCopy = image.getHierarchy().getAnnotationObjects().stream()
+                        .filter(a -> !a.isLocked())
+                        .map(a -> PathObjects.createAnnotationObject(a.getROI(), a.getPathClass())).toList();
+                heldOut.getHierarchy().addObjects(annotationsCopy);
+                validationEntry = project.addImage(server.getBuilder());
+                validationEntry.setImageName(Path.of(validationImage).getFileName().toString());
+                validationEntry.saveImageData(heldOut);
+                project.syncChanges();
+            }
+        }
+
         // Produce the fixture through the actual v0.7.0 training window.
         var nativePane = new PixelClassifierPane(qupath);
         var stageField = PixelClassifierPane.class.getDeclaredField("stage");
@@ -148,6 +171,8 @@ public final class DesktopSmokeExtension implements QuPathExtension {
         verifyDialogIcon();
         verifyUndo();
         var toggle = (ToggleButton) workspace.getScene().lookup("#training-layout-toggle");
+        require(toggle.getGraphic() != null && (toggle.getText() == null || toggle.getText().isEmpty()),
+                "Collapse and expand should use an icon-only button");
         double width = workspace.getWidth();
         double height = workspace.getHeight();
         double x = workspace.getX();
@@ -164,6 +189,7 @@ public final class DesktopSmokeExtension implements QuPathExtension {
                     "The retrain checkbox should move to the collapsed header");
             autoRetrain.fire();
             snapshot("workspace-collapsed.png");
+            captureTitle(workspace, "workspace-title.png");
             toggle.fire();
             await(() -> Math.abs(workspace.getHeight() - height) < 2, () -> {
                 requireGeometry(x, y, width, toggle, buttonBounds);
@@ -239,10 +265,30 @@ public final class DesktopSmokeExtension implements QuPathExtension {
     }
 
     private static void requireWindowIcon(Stage window) {
-        var icon = window.getScene().lookup("#ci-window-icon");
-        require(!window.getIcons().isEmpty() && icon instanceof ImageView view && view.isVisible()
-                        && view.getImage() != null && view.getFitWidth() >= 20,
-                "Missing visible extension icon in " + window.getTitle());
+        require(window.getIcons().stream().anyMatch(icon -> icon.getWidth() == 16),
+                "Missing native title icon in " + window.getTitle());
+    }
+
+    private void captureTitle(Stage window, String file) throws Exception {
+        var sceneStart = window.getScene().getRoot().localToScreen(0, 0);
+        double height = sceneStart.getY() - window.getY();
+        require(height > 12, "Missing decorated title bar");
+        var screenshot = new javafx.scene.robot.Robot().getScreenCapture(null, window.getX(), window.getY(),
+                Math.min(330, window.getWidth()), height, true);
+        ImageIO.write(SwingFXUtils.fromFXImage(screenshot, null), "png", output.resolve(file).toFile());
+        var pixels = screenshot.getPixelReader();
+        int teal = 0;
+        for (int y = 0; y < screenshot.getHeight(); y++) {
+            for (int x = 0; x < Math.min(35, screenshot.getWidth()); x++) {
+                int rgb = pixels.getArgb(x, y);
+                int red = rgb >> 16 & 255;
+                int green = rgb >> 8 & 255;
+                int blue = rgb & 255;
+                if (Math.abs(red - 20) <= 15 && Math.abs(green - 95) <= 15 && Math.abs(blue - 88) <= 15)
+                    teal++;
+            }
+        }
+        require(teal >= 10, "Extension icon is missing from the actual title bar of " + window.getTitle());
     }
 
     private void openFromLoader() {
@@ -286,11 +332,13 @@ public final class DesktopSmokeExtension implements QuPathExtension {
             bands.getSelectionModel().selectLast();
             require(imageView.getImage() != first, "Selecting another feature did not update the preview");
             snapshot(preview, "filters-dark.png");
+            captureTitle(preview, "filters-title.png");
             setTheme("Light");
             await(() -> true, () -> {
                 snapshot(preview, "filters-light.png");
                 preview.hide();
                 setTheme("Dark");
+                ((ComboBox<?>) workspace.getScene().lookup("#model")).getSelectionModel().selectFirst();
                 ((TextField) workspace.getScene().lookup("#downsample")).setText("3");
                 ((TextField) workspace.getScene().lookup("#feature-scales")).setText("0.5, 2, 4");
                 ((Slider) workspace.getScene().lookup("#preview-opacity")).setValue(0.37);
@@ -331,13 +379,141 @@ public final class DesktopSmokeExtension implements QuPathExtension {
         var saved = QP.loadPixelClassifier("extension-classifier");
         var rawRequest = RegionRequest.createInstance(qupath.getImageData().getServer().getPath(),
                 request.getDownsample(), request.getX(), request.getY(), request.getWidth(), request.getHeight());
+        var liveClassifier = ((qupath.lib.classifiers.pixel.PixelClassificationImageServer) predicted).getClassifier();
+        var livePixels = liveClassifier.applyClassification(qupath.getImageData(), rawRequest);
         var nativePixels = saved.applyClassification(qupath.getImageData(), rawRequest);
-        require(Arrays.equals(samples(pixels), samples(nativePixels)), "Stock QuPath prediction differs after project save");
+        require(Arrays.equals(samples(livePixels), samples(nativePixels)), "Stock QuPath prediction differs after project save");
 
         snapshot("workspace-dark.png");
         setTheme("Light");
         await(() -> true, () -> {
             snapshot("workspace-light.png");
+            verifyCurtain();
+        });
+    }
+
+    private void verifyCurtain() {
+        var compare = (CheckBox) workspace.getScene().lookup("#compare-prediction");
+        var visible = (CheckBox) workspace.getScene().lookup("#show-prediction");
+        @SuppressWarnings("unchecked")
+        var region = (ComboBox<StandardRegionFilters>) workspace.getScene().lookup("#preview-region");
+        var previousRegion = region.getValue();
+        var viewer = qupath.getViewer();
+        region.setValue(StandardRegionFilters.EVERYWHERE);
+        visible.fire();
+        await(() -> true, () -> {
+            var raw = viewer.getView().snapshot(null, null);
+            visible.fire();
+            var fullOverlay = viewer.getCustomPixelLayerOverlay();
+            compare.fire();
+            var handle = viewer.getView().lookup("#ci-prediction-curtain");
+            require(handle != null && viewer.getCustomPixelLayerOverlay() != fullOverlay,
+                    "Comparison did not install a cutaway overlay and its handle");
+            double oldX = handle.getLayoutX();
+            var server = viewer.getImageData().getServer();
+            int width = server.getWidth();
+            int height = server.getHeight();
+            var target = viewer.imagePointToComponentPoint(new java.awt.geom.Point2D.Double(width * .62, height * .5), null, false);
+            var point = viewer.getView().localToScene(target.getX(), target.getY());
+            Event.fireEvent(handle, new MouseEvent(MouseEvent.MOUSE_DRAGGED, point.getX(), point.getY(),
+                    point.getX(), point.getY(), MouseButton.PRIMARY, 1, false, false, false, false,
+                    true, false, false, false, false, false, new PickResult(handle, point.getX(), point.getY())));
+            require(handle.getLayoutX() > oldX, "Dragging did not move the comparison handle");
+
+            var sampleLeft = comparisonRegion(viewer, width * .15, width * .45, height);
+            var sampleRight = comparisonRegion(viewer, width * .72, width * .9, height);
+            await(() -> differs(raw, viewer.getView().snapshot(null, null), sampleRight) >= 100, () -> {
+                var comparison = viewer.getView().snapshot(null, null);
+                require(differs(raw, comparison, sampleLeft) < 10,
+                        "The comparison overlay changed pixels on the source side");
+                var bounds = comparisonRegion(viewer, 0, width, height, 0, 1);
+                var trimmed = new javafx.scene.image.WritableImage(comparison.getPixelReader(),
+                        bounds[0], bounds[1], bounds[2] - bounds[0], bounds[3] - bounds[1]);
+                ImageIO.write(SwingFXUtils.fromFXImage(trimmed, null), "png", output.resolve("comparison.png").toFile());
+                compare.fire();
+                require(viewer.getView().lookup("#ci-prediction-curtain") == null
+                                && viewer.getCustomPixelLayerOverlay() == fullOverlay,
+                        "Disabling comparison did not restore the full overlay");
+                region.setValue(previousRegion);
+                verifyImportance();
+            });
+        });
+    }
+
+    private static int[] comparisonRegion(qupath.lib.gui.viewer.QuPathViewer viewer,
+                                           double left, double right, int height) {
+        return comparisonRegion(viewer, left, right, height, .25, .75);
+    }
+
+    private static int[] comparisonRegion(qupath.lib.gui.viewer.QuPathViewer viewer,
+                                           double left, double right, int height, double top, double bottom) {
+        var a = viewer.imagePointToComponentPoint(new java.awt.geom.Point2D.Double(left, height * top), null, false);
+        var b = viewer.imagePointToComponentPoint(new java.awt.geom.Point2D.Double(right, height * bottom), null, false);
+        return new int[] {(int) Math.max(0, Math.ceil(a.getX())), (int) Math.max(0, Math.ceil(a.getY())),
+                (int) Math.min(viewer.getView().getWidth(), Math.floor(b.getX())),
+                (int) Math.min(viewer.getView().getHeight(), Math.floor(b.getY()))};
+    }
+
+    private static int differs(javafx.scene.image.Image a, javafx.scene.image.Image b, int[] area) {
+        var first = a.getPixelReader();
+        var second = b.getPixelReader();
+        int count = 0;
+        for (int y = area[1]; y < area[3]; y += 3) {
+            for (int x = area[0]; x < area[2]; x += 3) {
+                if (first.getArgb(x, y) != second.getArgb(x, y))
+                    count++;
+            }
+        }
+        return count;
+    }
+
+    private void verifyImportance() {
+        ((Button) workspace.getScene().lookup("#filter-importance")).fire();
+        await(() -> status().equals("Filter importance calculated."), () -> {
+            var window = visibleStage("CI Pixel Classifier · Filter importance");
+            var table = (TableView<?>) window.getScene().lookup("#feature-importance-table");
+            require(table.getItems().size() == 6, "Expected one score for each of two filters at three scales");
+            snapshot(window, "importance.png");
+            table.getSelectionModel().selectFirst();
+            window.getScene().getRoot().lookupAll(".button").stream()
+                    .filter(Button.class::isInstance).map(Button.class::cast)
+                    .filter(b -> "Show selected filter".equals(b.getText())).findFirst().orElseThrow().fire();
+            var preview = visibleStage("CI Pixel Classifier · Filter preview");
+            await(() -> ((ImageView) preview.getScene().lookup("#preview-feature-image")).getImage() != null, () -> {
+                preview.hide();
+                window.hide();
+                if (validationEntry == null)
+                    finish("trained");
+                else
+                    verifyImageValidation();
+            });
+        });
+    }
+
+    private void verifyImageValidation() {
+        var choose = workspace.getScene().getRoot().lookupAll(".button").stream()
+                .filter(Button.class::isInstance).map(Button.class::cast)
+                .filter(b -> "Choose project images…".equals(b.getText())).findFirst().orElseThrow();
+        Platform.runLater(() -> safely(() -> {
+            var dialog = visibleStage("Training images");
+            var pane = (DialogPane) dialog.getScene().lookup(".dialog-pane");
+            try {
+                @SuppressWarnings("unchecked")
+                var picker = (org.controlsfx.control.ListSelectionView<ProjectImageEntry<BufferedImage>>) pane.getContent();
+                picker.getSourceItems().remove(validationEntry);
+                picker.getTargetItems().add(validationEntry);
+            } finally {
+                ((Button) pane.lookupButton(ButtonType.APPLY)).fire();
+            }
+        }));
+        choose.fire();
+        ((Button) workspace.getScene().lookup("#validate-by-image")).fire();
+        await(() -> status().equals("Image validation complete."), () -> {
+            var window = visibleStage("CI Pixel Classifier · Image validation");
+            var table = (TableView<?>) window.getScene().lookup("#validation-matrix");
+            require(table.getItems().size() >= 2, "Validation report has no class confusion matrix");
+            snapshot(window, "validation.png");
+            window.hide();
             finish("trained");
         });
     }
@@ -349,6 +525,7 @@ public final class DesktopSmokeExtension implements QuPathExtension {
     private MenuItem extensionItem(String text) {
         var menu = (Menu) qupath.getMenu("Extensions", false).getItems().stream()
                 .filter(item -> "CI Pixel Classifier".equals(item.getText())).findFirst().orElseThrow();
+        require(menu.getGraphic() instanceof ImageView, "Extension menu is missing its icon");
         return menu.getItems().stream().filter(item -> text.equals(item.getText())).findFirst().orElseThrow();
     }
 

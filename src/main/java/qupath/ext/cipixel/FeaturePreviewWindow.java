@@ -78,7 +78,7 @@ final class FeaturePreviewWindow {
         });
         band.valueProperty().addListener((v, old, next) -> render(next));
         refresh.setTooltip(new javafx.scene.control.Tooltip("Recompute using the current viewer position and training settings."));
-        refresh.setOnAction(e -> refresh());
+        refresh.setOnAction(e -> refresh(band.getValue()));
         imageView.setId("preview-feature-image");
         imageView.setPreserveRatio(true);
         var canvas = new StackPane(imageView);
@@ -87,7 +87,7 @@ final class FeaturePreviewWindow {
         imageView.fitHeightProperty().bind(canvas.heightProperty().subtract(16));
         var header = row(band, refresh);
         header.setAlignment(Pos.CENTER_LEFT);
-        var top = WindowStyle.withIcon(field("Feature channel", band, header), 22);
+        var top = field("Feature channel", band, header);
         var root = new BorderPane(canvas, top, null, status, null);
         root.setPadding(new Insets(12));
         BorderPane.setMargin(canvas, new Insets(9, 0, 7, 0));
@@ -95,18 +95,18 @@ final class FeaturePreviewWindow {
         stage.setScene(WindowStyle.scene(root, 530, 450));
     }
 
-    void show() {
+    void show(Integer preferredBand) {
         if (!stage.isShowing())
             stage.show();
         stage.toFront();
-        refresh();
+        refresh(preferredBand == null ? band.getValue() : preferredBand);
     }
 
     void hide() {
         stage.hide();
     }
 
-    private void refresh() {
+    private void refresh(Integer preferredBand) {
         var current = viewer.get();
         var image = current == null ? null : current.getImageData();
         if (image == null) {
@@ -122,7 +122,6 @@ final class FeaturePreviewWindow {
             status.setText(e.getMessage());
             return;
         }
-        Integer previous = band.getValue();
         clearImage();
         double centerX = current.getCenterPixelX();
         double centerY = current.getCenterPixelY();
@@ -147,7 +146,7 @@ final class FeaturePreviewWindow {
             slice = task.getValue();
             band.getItems().setAll(IntStream.range(0, slice.bands()).boxed().toList());
             band.setDisable(false);
-            band.setValue(previous != null && previous < slice.bands() ? previous : 0);
+            band.setValue(preferredBand != null && preferredBand < slice.bands() ? preferredBand : 0);
         });
         task.setOnFailed(e -> {
             if (requested != revision)

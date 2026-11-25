@@ -16,7 +16,9 @@ public final class CiPixelClassifierExtension implements QuPathExtension {
         workspace = new ClassifierWorkspace(qupath);
         var loader = new ClassifierLoader(qupath, workspace);
         var menu = new Menu("CI Pixel Classifier");
+        menu.setGraphic(WindowStyle.iconView(16));
         var train = new MenuItem("Train classifier…");
+        train.setGraphic(WindowStyle.iconView(16));
         train.setOnAction(e -> {
             loader.hide();
             workspace.show();

@@ -132,6 +132,51 @@ class ClassifierCompatibilityTest {
         }
     }
 
+    @Test
+    void imageValidationHoldsOutEachSourceAndReportsClassMetrics() throws Exception {
+        try (var first = testImage("First validation image", 0);
+             var second = testImage("Second validation image", 5)) {
+            var settings = TrainingSettings.defaults(first);
+            var report = ImageValidation.validate(settings, first, List.of(first, second), message -> {});
+            assertEquals(2, report.classes().size());
+            assertEquals(2, report.folds().size());
+            assertNotEquals(report.folds().getFirst().image(), report.folds().getLast().image());
+            for (var fold : report.folds()) {
+                var stats = new AnalysisWindows.Metrics(fold.matrix());
+                assertTrue(stats.annotated(0) > 0 && stats.annotated(1) > 0);
+                assertTrue(stats.accuracy() >= 0.9);
+                assertTrue(stats.f1(0) >= 0.9 && stats.f1(1) >= 0.9);
+            }
+            var duplicate = assertThrows(IllegalArgumentException.class,
+                    () -> ImageValidation.validate(settings, first, List.of(first, first), message -> {}));
+            assertTrue(duplicate.getMessage().contains("selected twice"));
+            var high = second.getHierarchy().getAnnotationObjects().stream()
+                    .filter(a -> a.getPathClass() == PathClass.fromString("High")).findFirst().orElseThrow();
+            high.setLocked(true);
+            var missing = assertThrows(IllegalArgumentException.class,
+                    () -> ImageValidation.validate(settings, first, List.of(first, second), message -> {}));
+            assertTrue(missing.getMessage().contains("Missing coverage for [High]"));
+        }
+    }
+
+    @Test
+    void randomTreesRanksEachOriginalFilterWithItsPreviewBand() throws Exception {
+        try (var image = testImage()) {
+            var settings = TrainingSettings.defaults(image);
+            var names = settings.featureOp(image).getChannels(image);
+            var ranks = ClassifierTrainer.importance(settings, image, List.of(image));
+            assertEquals(10, ranks.size());
+            assertEquals(10, ranks.stream().map(ClassifierTrainer.FeatureRank::band).distinct().count());
+            for (int i = 0; i < ranks.size(); i++) {
+                var rank = ranks.get(i);
+                assertEquals(names.get(rank.band()).getName(), rank.name());
+                assertTrue(Double.isFinite(rank.weight()));
+                if (i > 0)
+                    assertTrue(ranks.get(i - 1).weight() >= rank.weight());
+            }
+        }
+    }
+
     private static TrainingSettings probabilitySettings(ImageData<BufferedImage> image) {
         var defaultSettings = TrainingSettings.defaults(image);
         var features = new FeatureRecipe(defaultSettings.features().channels(),
@@ -144,14 +189,18 @@ class ClassifierCompatibilityTest {
     }
 
     private static ImageData<BufferedImage> testImage() {
+        return testImage("Test grayscale", 0);
+    }
+
+    private static ImageData<BufferedImage> testImage(String name, int shift) {
         var pixels = new BufferedImage(128, 128, BufferedImage.TYPE_BYTE_GRAY);
         for (int y = 0; y < 128; y++) {
             for (int x = 0; x < 128; x++) {
                 int bias = x < 64 ? 20 : 185;
-                pixels.getRaster().setSample(x, y, 0, bias + (x * x + 3 * y) % 63);
+                pixels.getRaster().setSample(x, y, 0, bias + (x * x + 3 * y + shift) % 63);
             }
         }
-        var image = new ImageData<>(new WrappedBufferedImageServer("Test grayscale", pixels));
+        var image = new ImageData<>(new WrappedBufferedImageServer(name, pixels));
         var plane = ImagePlane.getDefaultPlane();
         image.getHierarchy().addObjects(List.of(
                 PathObjects.createAnnotationObject(ROIs.createRectangleROI(12, 12, 32, 64, plane), PathClass.fromString("Low")),

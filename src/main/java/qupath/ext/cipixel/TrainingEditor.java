@@ -70,7 +70,7 @@ final class TrainingEditor {
     private ImageData<BufferedImage> image;
     private boolean updating;
 
-    TrainingEditor(Runnable onChange, Runnable showFeatures) {
+    TrainingEditor(Runnable onChange, Runnable showFeatures, Runnable showImportance) {
         this.onChange = onChange;
         model.setId("model");
         output.setId("output-type");
@@ -150,7 +150,11 @@ final class TrainingEditor {
         var preview = new Button("Show filters…");
         preview.setId("show-filters");
         preview.setOnAction(e -> showFeatures.run());
-        var featureHeader = row(featuresCard.getChildren().removeFirst(), preview);
+        var importance = new Button("Importance…");
+        importance.setId("filter-importance");
+        importance.setOnAction(e -> showImportance.run());
+        importance.setTooltip(new Tooltip("Calculate channel, filter and scale importance using Random trees."));
+        var featureHeader = row(featuresCard.getChildren().removeFirst(), preview, importance);
         featureHeader.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
         featuresCard.getChildren().addFirst(featureHeader);
 

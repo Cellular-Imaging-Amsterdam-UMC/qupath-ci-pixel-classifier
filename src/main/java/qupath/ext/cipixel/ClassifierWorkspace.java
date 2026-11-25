@@ -29,6 +29,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.shape.Polyline;
 import javafx.stage.FileChooser;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
@@ -54,6 +55,7 @@ import qupath.process.gui.commands.ml.PixelClassifierUI;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -99,6 +101,8 @@ final class ClassifierWorkspace {
     private Label projectImagesLabel;
     private VBox classRows;
     private Button train;
+    private Button validate;
+    private CheckBox comparePrediction;
     private Button export;
     private CheckBox showOverlay;
     private CheckBox autoTrain;
@@ -122,6 +126,7 @@ final class ClassifierWorkspace {
     private FeaturePreviewWindow featurePreview;
     private final ViewerPrediction prediction = new ViewerPrediction();
     private ToggleButton compact;
+    private Polyline collapseGlyph;
     private double expandedHeight;
     private boolean expandedMaximized;
 
@@ -184,23 +189,25 @@ final class ClassifierWorkspace {
         imageLabel.setMinWidth(0);
         var load = new Button("Load…");
         load.setOnAction(e -> openLoader.run());
-        compact = new ToggleButton("Collapse");
+        compact = new ToggleButton();
         compact.setId("training-layout-toggle");
-        compact.setMinWidth(85);
-        compact.setPrefWidth(85);
-        compact.setMaxWidth(85);
-        compact.setTooltip(new Tooltip("Collapse the training window while annotating the image."));
+        compact.setMinWidth(34);
+        compact.setPrefWidth(34);
+        compact.setMaxWidth(34);
+        collapseGlyph = new Polyline(0, 5, 5, 0, 10, 5);
+        collapseGlyph.getStyleClass().add("window-toggle-glyph");
+        compact.setGraphic(collapseGlyph);
+        updateCollapseButton(false);
         var reset = new MenuButton("Settings");
         addChoice(reset, "Reset training settings", () -> {
             applySettings(TrainingSettings.defaults(image.get()));
             trainingChanged();
         });
-        var heading = WindowStyle.withIcon(new VBox(2, title, imageLabel), 26);
-        var header = row(heading, load, reset, compact);
+        var header = row(new VBox(2, title, imageLabel), load, reset, compact);
         header.setAlignment(Pos.CENTER_LEFT);
         header.getStyleClass().add("workspace-header");
 
-        editor = new TrainingEditor(this::trainingChanged, this::showFeatures);
+        editor = new TrainingEditor(this::trainingChanged, () -> showFeatures(null), this::calculateImportance);
         var left = editor.node();
         left.setMinWidth(345);
         left.setPrefWidth(390);
@@ -275,15 +282,23 @@ final class ClassifierWorkspace {
         var more = new Button("Choose project images…");
         more.disableProperty().bind(qupath.projectProperty().isNull());
         more.setOnAction(e -> chooseTrainingImages());
+        validate = new Button("Validate…");
+        validate.setId("validate-by-image");
+        validate.setTooltip(new Tooltip("Hold out one annotated image at a time. Choose at least two images."));
+        validate.setOnAction(e -> validateImages());
         projectImagesLabel = note("");
-        return card("Training data", instructions, classRows, new Separator(), projectImagesLabel, more, trainingPixels);
+        return card("Training data", instructions, classRows, new Separator(), projectImagesLabel,
+                new HBox(6, more, validate), trainingPixels);
     }
 
     private VBox previewCard() {
         showOverlay = new CheckBox("Show prediction in viewer");
         showOverlay.setId("show-prediction");
         showOverlay.setSelected(true);
-        showOverlay.selectedProperty().addListener((v, old, next) -> refreshOverlay());
+        showOverlay.selectedProperty().addListener((v, old, next) -> {
+            comparePrediction.setDisable(!next || applicable.get() == null);
+            refreshOverlay();
+        });
         autoTrain = new CheckBox(RETRAIN_LABEL);
         autoTrain.setAccessibleText(RETRAIN_LABEL);
         autoTrain.setTooltip(new Tooltip(RETRAIN_LABEL));
@@ -321,7 +336,11 @@ final class ClassifierWorkspace {
         modelStatus = note("");
         modelStatus.setId("model-status");
         modelStatus.getStyleClass().add("model-status");
-        return card("Preview", modelStatus, showOverlay, autoTrainSlot,
+        comparePrediction = new CheckBox("Compare with source");
+        comparePrediction.setId("compare-prediction");
+        comparePrediction.setTooltip(new Tooltip("Drag the line in the viewer to compare the source and prediction."));
+        comparePrediction.selectedProperty().addListener((v, old, next) -> prediction.setComparison(next));
+        return card("Preview", modelStatus, showOverlay, comparePrediction, autoTrainSlot,
                 field("Prediction region", previewRegion), field("Opacity", opacity, row(opacity, percent)));
     }
 
@@ -520,44 +539,9 @@ final class ClassifierWorkspace {
         }
 
         inputChangesSaved(settings);
-        var entries = List.copyOf(trainingEntries);
-        var project = qupath.getProject();
-        var open = new java.util.HashMap<ProjectImageEntry<BufferedImage>, ImageData<BufferedImage>>();
-        if (project != null) {
-            for (var viewer : qupath.getAllViewers()) {
-                var data = viewer.getImageData();
-                if (data != null) {
-                    var entry = project.getEntry(data);
-                    if (entry != null)
-                        open.put(entry, data);
-                }
-            }
-        }
         long revision = trainingRevision;
-        run("Training classifier…", () -> {
-            var images = new LinkedHashSet<ImageData<BufferedImage>>();
-            var opened = new ArrayList<ImageData<BufferedImage>>();
-            images.add(currentImage);
-            try {
-                for (var entry : entries) {
-                    var data = open.get(entry);
-                    if (data == null) {
-                        data = entry.readImageData();
-                        opened.add(data);
-                    }
-                    images.add(data);
-                }
-                return ClassifierTrainer.train(settings, currentImage, images);
-            } finally {
-                for (var data : opened) {
-                    try {
-                        data.close();
-                    } catch (Exception e) {
-                        logger.warn("Could not close a training image", e);
-                    }
-                }
-            }
-        }, result -> {
+        runWithTrainingImages("Training classifier…", currentImage,
+                images -> ClassifierTrainer.train(settings, currentImage, images), result -> {
             if (trainingRevision != revision || image.get() != currentImage) {
                 activityStatus = "Training inputs changed. Train again to use the current settings.";
                 return;
@@ -572,6 +556,113 @@ final class ClassifierWorkspace {
             updateSampleSummary();
             refreshOverlay();
         });
+    }
+
+    private void validateImages() {
+        var current = image.get();
+        if (current == null || busy)
+            return;
+        var settings = analysisSettings();
+        if (settings == null)
+            return;
+        long revision = trainingRevision;
+        runWithTrainingImages("Validating images…", current,
+                images -> ImageValidation.validate(settings, current, images, message -> Platform.runLater(() -> {
+                    if (busy && revision == trainingRevision) {
+                        activityStatus = message;
+                        status.setText(message);
+                    }
+                })), result -> {
+                    if (!acceptAnalysis(revision, current))
+                        return;
+                    activityStatus = "Image validation complete.";
+                    AnalysisWindows.showValidation(stage, result);
+                });
+    }
+
+    private void calculateImportance() {
+        var current = image.get();
+        if (current == null || busy)
+            return;
+        var settings = analysisSettings();
+        if (settings == null)
+            return;
+        long revision = trainingRevision;
+        runWithTrainingImages("Calculating filter importance…", current,
+                images -> ClassifierTrainer.importance(settings, current, images), result -> {
+                    if (!acceptAnalysis(revision, current))
+                        return;
+                    activityStatus = "Filter importance calculated.";
+                    AnalysisWindows.showImportance(stage, result, band -> {
+                        if (acceptAnalysis(revision, current))
+                            showFeatures(band);
+                        else
+                            updateState();
+                    });
+                });
+    }
+
+    private TrainingSettings analysisSettings() {
+        try {
+            return readSettings();
+        } catch (IllegalArgumentException e) {
+            activityStatus = e.getMessage();
+            updateState();
+            return null;
+        }
+    }
+
+    private boolean acceptAnalysis(long revision, ImageData<BufferedImage> current) {
+        if (revision == trainingRevision && image.get() == current && stage.isShowing())
+            return true;
+        activityStatus = "Training inputs changed. Run the analysis again for the current settings.";
+        return false;
+    }
+
+    @FunctionalInterface
+    private interface TrainingImageOperation<T> {
+        T apply(List<ImageData<BufferedImage>> images) throws IOException;
+    }
+
+    private <T> void runWithTrainingImages(String message, ImageData<BufferedImage> current,
+                                           TrainingImageOperation<T> operation, Consumer<T> completed) {
+        var entries = List.copyOf(trainingEntries);
+        var project = qupath.getProject();
+        var open = new java.util.HashMap<ProjectImageEntry<BufferedImage>, ImageData<BufferedImage>>();
+        if (project != null) {
+            for (var viewer : qupath.getAllViewers()) {
+                var data = viewer.getImageData();
+                if (data != null) {
+                    var entry = project.getEntry(data);
+                    if (entry != null)
+                        open.put(entry, data);
+                }
+            }
+        }
+        run(message, () -> {
+            var images = new LinkedHashSet<ImageData<BufferedImage>>();
+            var opened = new ArrayList<ImageData<BufferedImage>>();
+            images.add(current);
+            try {
+                for (var entry : entries) {
+                    var data = open.get(entry);
+                    if (data == null) {
+                        data = entry.readImageData();
+                        opened.add(data);
+                    }
+                    images.add(data);
+                }
+                return operation.apply(List.copyOf(images));
+            } finally {
+                for (var data : opened) {
+                    try {
+                        data.close();
+                    } catch (Exception e) {
+                        logger.warn("Could not close a training image", e);
+                    }
+                }
+            }
+        }, completed);
     }
 
     private void inputChangesSaved(TrainingSettings settings) {
@@ -684,6 +775,8 @@ final class ClassifierWorkspace {
         applicable.set(compatible ? classifier : null);
         train.setDisable(image.get() == null || busy);
         export.setDisable(classifier == null || busy);
+        validate.setDisable(image.get() == null || busy);
+        comparePrediction.setDisable(!compatible || !showOverlay.isSelected());
         showOverlay.setDisable(!compatible);
         progress.setVisible(busy);
         var label = classifier == null ? "No classifier loaded or trained." : modelSource;
@@ -712,10 +805,10 @@ final class ClassifierWorkspace {
         prediction.show(show ? viewer : null, active.get(), opacity.getValue());
     }
 
-    private void showFeatures() {
+    private void showFeatures(Integer preferredBand) {
         if (featurePreview == null)
             featurePreview = new FeaturePreviewWindow(stage, qupath::getViewer, this::readSettings, worker);
-        featurePreview.show();
+        featurePreview.show(preferredBand);
     }
 
     private Button createUndoButton() {
@@ -745,8 +838,15 @@ final class ClassifierWorkspace {
         }
     }
 
+    private void updateCollapseButton(boolean collapsed) {
+        var label = collapsed ? "Expand training window" : "Collapse training window";
+        compact.setAccessibleText(label);
+        compact.setTooltip(new Tooltip(label));
+        collapseGlyph.setRotate(collapsed ? 180 : 0);
+    }
+
     private void setCollapsed(BorderPane root, ScrollPane scroll, HBox footer, boolean collapsed) {
-        compact.setText(collapsed ? "Expand" : "Collapse");
+        updateCollapseButton(collapsed);
         if (collapsed) {
             if (featurePreview != null)
                 featurePreview.hide();
