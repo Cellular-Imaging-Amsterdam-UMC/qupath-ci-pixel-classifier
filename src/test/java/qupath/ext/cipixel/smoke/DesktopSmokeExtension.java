@@ -402,7 +402,12 @@ public final class DesktopSmokeExtension implements QuPathExtension {
         region.setValue(StandardRegionFilters.EVERYWHERE);
         visible.fire();
         await(() -> true, () -> {
+            var server = viewer.getImageData().getServer();
+            int width = server.getWidth();
+            int height = server.getHeight();
             var raw = viewer.getView().snapshot(null, null);
+            int rawLeft = greenSamples(raw, comparisonRegion(viewer, width * .15, width * .45, height));
+            int rawRight = greenSamples(raw, comparisonRegion(viewer, width * .72, width * .9, height));
             visible.fire();
             var fullOverlay = viewer.getCustomPixelLayerOverlay();
             compare.fire();
@@ -410,9 +415,6 @@ public final class DesktopSmokeExtension implements QuPathExtension {
             require(handle != null && viewer.getCustomPixelLayerOverlay() != fullOverlay,
                     "Comparison did not install a cutaway overlay and its handle");
             double oldX = handle.getLayoutX();
-            var server = viewer.getImageData().getServer();
-            int width = server.getWidth();
-            int height = server.getHeight();
             var target = viewer.imagePointToComponentPoint(new java.awt.geom.Point2D.Double(width * .62, height * .5), null, false);
             var point = viewer.getView().localToScene(target.getX(), target.getY());
             Event.fireEvent(handle, new MouseEvent(MouseEvent.MOUSE_DRAGGED, point.getX(), point.getY(),
@@ -420,12 +422,13 @@ public final class DesktopSmokeExtension implements QuPathExtension {
                     true, false, false, false, false, false, new PickResult(handle, point.getX(), point.getY())));
             require(handle.getLayoutX() > oldX, "Dragging did not move the comparison handle");
 
-            var sampleLeft = comparisonRegion(viewer, width * .15, width * .45, height);
-            var sampleRight = comparisonRegion(viewer, width * .72, width * .9, height);
-            await(() -> differs(raw, viewer.getView().snapshot(null, null), sampleRight) >= 100, () -> {
+            await(() -> {
                 var comparison = viewer.getView().snapshot(null, null);
-                require(differs(raw, comparison, sampleLeft) < 10,
-                        "The comparison overlay changed pixels on the source side");
+                int left = greenSamples(comparison, comparisonRegion(viewer, width * .15, width * .45, height));
+                int right = greenSamples(comparison, comparisonRegion(viewer, width * .72, width * .9, height));
+                return right - rawRight >= 300 && Math.abs(left - rawLeft) < 80;
+            }, () -> {
+                var comparison = viewer.getView().snapshot(null, null);
                 var bounds = comparisonRegion(viewer, 0, width, height, 0, 1);
                 var trimmed = new javafx.scene.image.WritableImage(comparison.getPixelReader(),
                         bounds[0], bounds[1], bounds[2] - bounds[0], bounds[3] - bounds[1]);
@@ -454,13 +457,16 @@ public final class DesktopSmokeExtension implements QuPathExtension {
                 (int) Math.min(viewer.getView().getHeight(), Math.floor(b.getY()))};
     }
 
-    private static int differs(javafx.scene.image.Image a, javafx.scene.image.Image b, int[] area) {
-        var first = a.getPixelReader();
-        var second = b.getPixelReader();
+    private static int greenSamples(javafx.scene.image.Image image, int[] area) {
+        var pixels = image.getPixelReader();
         int count = 0;
         for (int y = area[1]; y < area[3]; y += 3) {
             for (int x = area[0]; x < area[2]; x += 3) {
-                if (first.getArgb(x, y) != second.getArgb(x, y))
+                int rgb = pixels.getArgb(x, y);
+                int red = rgb >> 16 & 255;
+                int green = rgb >> 8 & 255;
+                int blue = rgb & 255;
+                if (green > red + 30 && green > blue + 30)
                     count++;
             }
         }

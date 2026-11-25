@@ -2,6 +2,7 @@ package qupath.ext.cipixel;
 
 import javafx.beans.property.SimpleDoubleProperty;
 import qupath.lib.classifiers.pixel.PixelClassifier;
+import qupath.lib.gui.measure.ObservableMeasurementTableData;
 import qupath.lib.gui.prefs.PathPrefs;
 import qupath.lib.gui.viewer.OverlayOptions;
 import qupath.lib.gui.viewer.QuPathViewer;
@@ -68,6 +69,11 @@ final class ViewerPrediction {
         }
         installed = comparison ? curtain : overlay;
         viewer.setCustomPixelLayerOverlay(installed);
+        if (comparison) {
+            var image = viewer.getImageData();
+            ObservableMeasurementTableData.setPixelLayer(image, overlay.getPixelClassificationServer(image));
+        }
+        viewer.repaint();
     }
 
     void clear() {
@@ -75,8 +81,10 @@ final class ViewerPrediction {
             return;
         if (curtain != null)
             curtain.detach();
-        if (viewer.getCustomPixelLayerOverlay() == installed)
+        if (viewer.getCustomPixelLayerOverlay() == installed) {
             viewer.setCustomPixelLayerOverlay(previous);
+            viewer.repaint();
+        }
         overlay.stop();
         curtain = null;
         installed = null;
