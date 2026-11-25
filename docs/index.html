@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101713">
+  <meta name="description" content="A hands-on guide to training, inspecting and reusing native QuPath 0.7 pixel classifiers with the CI Pixel Classifier extension.">
+  <title>CI Pixel Classifier · QuPath 0.7 guide</title>
+  <link rel="icon" href="assets/icon.png">
+  <link rel="stylesheet" href="styles.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <div class="shell top-inner">
+      <a class="brand" href="#top"><img src="assets/icon.png" alt="" width="33" height="33">CI Pixel Classifier</a>
+      <nav aria-label="Main navigation">
+        <a href="#tutorial">Tutorial</a>
+        <a href="#workflow">Workflow</a>
+        <a href="#json">Classifier JSON</a>
+        <a href="https://github.com/Cellular-Imaging-Amsterdam-UMC/qupath-ci-pixel-classifier/releases">Releases ↗</a>
+      </nav>
+    </div>
+  </header>
+  <main id="top">
+    <section class="shell hero" aria-labelledby="heading">
+      <div class="hero-copy">
+        <p class="eyebrow">QuPath 0.7 extension</p>
+        <h1 id="heading">Pixel classification<br><em>in QuPath</em></h1>
+        <p class="lead">Draw training annotations, inspect the filters and review predictions as you work. Save the result as a native QuPath classifier and reopen its settings the next time you train.</p>
+        <div class="actions">
+          <a class="button primary" href="#tutorial">Watch the Islet tutorial <span aria-hidden="true">↓</span></a>
+          <a class="button secondary" href="#install">Installation</a>
+        </div>
+      </div>
+      <figure class="hero-figure">
+        <img src="assets/islet-comparison.webp" alt="QuPath viewer split by a vertical slider, with the raw Islet fluorescence image on the left and green nucleus predictions on the right" width="862" height="824" fetchpriority="high">
+        <figcaption><span><i></i> Fluorescence source</span><span>Prediction overlay <i></i></span></figcaption>
+      </figure>
+    </section>
+
+    <section class="section section-tint" id="tutorial" aria-labelledby="tutorial-heading">
+      <div class="shell">
+        <div class="section-heading">
+          <p class="eyebrow">Hands-on walkthrough</p>
+          <h2 id="tutorial-heading">Classify nuclei in the Islet image</h2>
+          <p>Follow the complete workflow on <cite>Pancreatic Islet Cells of the Mouse</cite>, from opening the extension to saving an editable classifier. The video has English narration and selectable English captions.</p>
+        </div>
+        <div class="video-grid">
+          <div>
+            <video id="tutorial-video" controls playsinline preload="metadata" poster="assets/video-poster.webp" aria-label="CI Pixel Classifier Islet tutorial">
+              <source src="assets/ci-pixel-classifier-islet.mp4" type="video/mp4">
+              <track kind="captions" src="assets/ci-pixel-classifier-islet.en.vtt" srclang="en" label="English" default>
+              <track kind="chapters" src="assets/ci-pixel-classifier-islet.chapters.vtt" srclang="en" label="Chapters">
+              Your browser can download the MP4 using the link below.
+            </video>
+            <div class="video-links">
+              <a href="assets/ci-pixel-classifier-islet.mp4" download>Download MP4</a>
+              <a href="assets/ci-pixel-classifier-islet.en.srt" download>Download English subtitles</a>
+              <a href="https://github.com/Cellular-Imaging-Amsterdam-UMC/qp-lessons/blob/main/resources/Pancreatic%20Islet%20Cells%20of%20the%20Mouse.tif">Get the Islet image ↗</a>
+            </div>
+          </div>
+          <aside class="chapters" aria-labelledby="chapters-heading">
+            <h3 id="chapters-heading">Chapters</h3>
+            <ol id="chapter-list">
+              <li><a href="assets/ci-pixel-classifier-islet.mp4#t=0.000" data-start="0.000"><time datetime="PT0M0S">0:00</time>Start in QuPath</a></li>
+              <li><a href="assets/ci-pixel-classifier-islet.mp4#t=66.344" data-start="66.344"><time datetime="PT1M6S">1:06</time>Draw training annotations</a></li>
+              <li><a href="assets/ci-pixel-classifier-islet.mp4#t=134.348" data-start="134.348"><time datetime="PT2M14S">2:14</time>Train and inspect live</a></li>
+              <li><a href="assets/ci-pixel-classifier-islet.mp4#t=211.816" data-start="211.816"><time datetime="PT3M31S">3:31</time>Compare with the source</a></li>
+              <li><a href="assets/ci-pixel-classifier-islet.mp4#t=271.676" data-start="271.676"><time datetime="PT4M31S">4:31</time>Explore filters</a></li>
+              <li><a href="assets/ci-pixel-classifier-islet.mp4#t=348.409" data-start="348.409"><time datetime="PT5M48S">5:48</time>Validate across images</a></li>
+              <li><a href="assets/ci-pixel-classifier-islet.mp4#t=437.577" data-start="437.577"><time datetime="PT7M17S">7:17</time>Save, load and edit</a></li>
+              <li><a href="assets/ci-pixel-classifier-islet.mp4#t=514.001" data-start="514.001"><time datetime="PT8M34S">8:34</time>Apply the classifier</a></li>
+            </ol>
+          </aside>
+        </div>
+        <p class="credit">Example image and lesson format from <a href="https://github.com/Cellular-Imaging-Amsterdam-UMC/qp-lessons/tree/main/Day2/1%29%20pixel_classification">QP Lessons</a> by Cellular Imaging, Amsterdam UMC.</p>
+      </div>
+    </section>
+
+    <section class="shell section" id="workflow" aria-labelledby="workflow-heading">
+      <div class="section-heading">
+        <p class="eyebrow">Workflow in QuPath</p>
+        <h2 id="workflow-heading">From annotations to a checked classifier</h2>
+      </div>
+      <article class="feature-row">
+        <div>
+          <h3>Train while you annotate</h3>
+          <p>Draw unlocked annotations for at least two classes. Use the pixel counts and percentages in <strong>Training data</strong> to see what the model actually sampled. Enable <strong>Live Prediction</strong> to retrain as you edit. Collapse the window to make space for the viewer. The checkbox moves into the header and the window keeps its width and position.</p>
+          <p>The Undo arrow beside <strong>Export JSON</strong> uses QuPath’s annotation history. On Windows, the shortcut is <kbd>Ctrl</kbd> + <kbd>Z</kbd>.</p>
+        </div>
+        <figure><a href="assets/islet-training.webp"><img src="assets/islet-training.webp" alt="CI Pixel Classifier training dialog with class pixel counts, the ratio bar and Live Prediction" width="745" height="735" loading="lazy"></a><figcaption>Training workspace in QuPath’s Dark theme.</figcaption></figure>
+      </article>
+      <article class="feature-row">
+        <div>
+          <h3>Inspect what the model sees</h3>
+          <p>New setups start with all ten 2D filters selected. <strong>Show filters</strong> opens a QuPath popup with a channel, filter and scale selector. Use <strong>Refresh view</strong> after moving to a different area. Local normalization and local scale are under <strong>Advanced training settings</strong>.</p>
+          <p>For Random Trees, use <strong>Importance</strong> to rank feature combinations and inspect a selected filter. Keep PCA off to rank the original filters.</p>
+        </div>
+        <figure><a href="assets/islet-filters.webp"><img src="assets/islet-filters.webp" alt="Native QuPath filter preview displaying an Islet feature channel in grayscale" width="530" height="450" loading="lazy"></a><figcaption>A computed feature channel from the Islet image.</figcaption></figure>
+      </article>
+      <article class="feature-row">
+        <div>
+          <h3>Check predictions at two levels</h3>
+          <p>Enable <strong>Compare with source</strong> and drag the divider across the viewer. Check the same structure on the source and prediction sides and adjust the opacity or preview region as needed.</p>
+          <p>Use <strong>Choose project images</strong> and <strong>Validate</strong> for leave-one-image-out evaluation. Each class needs annotations on at least two images. Review the confusion matrix, class precision, recall and F1, and the per-image results. Use independent images for an estimate that can support your study.</p>
+        </div>
+        <figure><a href="assets/islet-validation.webp"><img src="assets/islet-validation.webp" alt="Image validation dialog showing a confusion matrix for the original Islet image and a held-out Islet field" width="695" height="474" loading="lazy"></a><figcaption>The tutorial uses separate fields of the same specimen to demonstrate the validation interface.</figcaption></figure>
+      </article>
+    </section>
+
+    <section class="section section-tint" id="json" aria-labelledby="json-heading">
+      <div class="shell feature-row json-row">
+        <div>
+          <p class="eyebrow">Native QuPath files</p>
+          <h2 id="json-heading">Save, load and edit</h2>
+          <p>Save a trained classifier to the current project or choose <strong>Export JSON</strong> for a portable file. The extension uses QuPath 0.7’s classifier JSON, so QuPath can apply the same model through its standard pixel-classifier tools.</p>
+          <p>Open <strong>Extensions → CI Pixel Classifier → Load classifier</strong> and select a project classifier or choose <strong>Open JSON</strong>. Preview or apply the model from the loader. Select <strong>Edit</strong> to reopen the supported training settings. Recent workspace settings are remembered in your QuPath profile.</p>
+          <details>
+            <summary>What the JSON restores</summary>
+            <p>Compatible native classifiers restore the available channel, filter, scale, resolution and fitted model settings. Some original training choices, such as the random seed and sample limits, are workspace settings. For imported fitted preprocessing, choose <strong>Fit new preprocessing</strong> to refit it on your annotations or to run image validation.</p>
+          </details>
+        </div>
+        <figure><a href="assets/islet-loader.webp"><img src="assets/islet-loader.webp" alt="Load classifier dialog with the Islet nuclei project classifier selected and Edit visible" width="495" height="523" loading="lazy"></a><figcaption>Load a project classifier or open a native JSON file.</figcaption></figure>
+      </div>
+    </section>
+
+    <section class="shell section install" id="install" aria-labelledby="install-heading">
+      <div>
+        <p class="eyebrow">Installation</p>
+        <h2 id="install-heading">Open it in QuPath 0.7.0</h2>
+        <p>The release download requires access to the Cellular Imaging GitHub repository.</p>
+        <a class="button primary" href="https://github.com/Cellular-Imaging-Amsterdam-UMC/qupath-ci-pixel-classifier/releases/latest">Download from GitHub <span aria-hidden="true">↗</span></a>
+      </div>
+      <ol>
+        <li>Download the extension JAR from GitHub Releases.</li>
+        <li>Copy it into the <code>extensions</code> folder of the QuPath user directory. A portable installation can use a separate user directory.</li>
+        <li>Restart QuPath and open <strong>Extensions → CI Pixel Classifier → Train classifier</strong>.</li>
+      </ol>
+    </section>
+  </main>
+  <footer>
+    <div class="shell footer-inner"><span>Cellular Imaging · Amsterdam UMC</span><a href="#top">Back to top ↑</a></div>
+  </footer>
+</body>
+</html>

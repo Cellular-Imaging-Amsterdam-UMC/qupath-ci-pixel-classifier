@@ -179,6 +179,7 @@ public final class DesktopSmokeExtension implements QuPathExtension {
         double y = workspace.getY();
         var buttonBounds = toggle.localToScreen(toggle.getBoundsInLocal());
         var autoRetrain = (CheckBox) workspace.getScene().lookup("#auto-train");
+        require("Live Prediction".equals(autoRetrain.getText()), "Missing expanded Live Prediction label");
         var previewSlot = autoRetrain.getParent();
         toggle.fire();
         await(() -> workspace.getHeight() < 120, () -> {
@@ -187,6 +188,7 @@ public final class DesktopSmokeExtension implements QuPathExtension {
             require(workspace.getScene().lookup("#auto-train") == autoRetrain
                             && autoRetrain.getParent().getStyleClass().contains("workspace-header"),
                     "The retrain checkbox should move to the collapsed header");
+            require("Live Prediction".equals(autoRetrain.getText()), "Missing collapsed Live Prediction label");
             autoRetrain.fire();
             snapshot("workspace-collapsed.png");
             captureTitle(workspace, "workspace-title.png");

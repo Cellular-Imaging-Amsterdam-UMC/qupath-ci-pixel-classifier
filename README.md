@@ -2,6 +2,8 @@
 
 Train and reuse QuPath pixel classifiers in a single workspace. It follows QuPath’s Light and Dark themes, remembers the last training setup, and uses QuPath 0.7’s native classifier JSON for both import and export.
 
+[Read the guide and watch the captioned Islet tutorial](https://cellular-imaging-amsterdam-umc.github.io/qupath-ci-pixel-classifier/).
+
 ## Install
 
 Use **QuPath 0.7.0**. Download the JAR from [Releases](https://github.com/Cellular-Imaging-Amsterdam-UMC/qupath-ci-pixel-classifier/releases). Copy it into the `extensions` subfolder of the QuPath user directory, restart QuPath, and open **Extensions → CI Pixel Classifier → Train classifier**. In a portable setup, the user directory can point to a separate location outside the QuPath application folder.
@@ -11,10 +13,10 @@ Use **QuPath 0.7.0**. Download the JAR from [Releases](https://github.com/Cellul
 1. Open an image. Draw unlocked annotations for at least two different classes. The training panel shows how many annotations it found for each class. Select **Choose project images** to include annotated images from the same project.
 2. Pick a classifier, resolution, channels, feature filters and scales. **Model & resolution** shows the effective pixel size for calibrated images. New and reset setups select all ten 2D filters. Saved and imported selections are restored. **Advanced training settings** includes local normalization and scale, sample limits, class weighting, feature normalization, PCA and boundary handling.
 3. Select **Show filters** to preview the computed features in a QuPath window. Choose a feature channel in the popup and use **Refresh view** after moving to another region or changing settings.
-4. Select **Train classifier**. The training card shows how many sampled pixels each class contributed and its percentage of the training set. The QuPath viewer shows the prediction overlay. Set its region and opacity in **Preview**. Enable **Retrain when settings or annotations change** to update the prediction automatically.
+4. Select **Train classifier**. The training card shows how many sampled pixels each class contributed and its percentage of the training set. The QuPath viewer shows the prediction overlay. Set its region and opacity in **Preview**. Enable **Live Prediction** to update the prediction automatically.
 5. Use **Export JSON** for a standalone file, or save the classifier to the open project. Create objects, add measurements, classify detections or export the prediction image using QuPath’s standard tools.
 
-Use the arrow in the title area to collapse or expand the training workspace. The window keeps its width and the button stays in place. **Auto retrain** moves into the header so it stays available while annotating. **Expand** restores the training controls. The Undo arrow beside **Export JSON** uses the active QuPath viewer’s Undo history (**Ctrl+Z**, or **Cmd+Z** on macOS). Changes are remembered in the active QuPath preference profile. Training annotations and classifiers are saved through their usual QuPath workflows. Save or export a trained model if you want to use it in a later session.
+Use the arrow in the title area to collapse or expand the training workspace. The window keeps its width and the button stays in place. **Live Prediction** moves into the header so it stays available while annotating. **Expand** restores the training controls. The Undo arrow beside **Export JSON** uses the active QuPath viewer’s Undo history (**Ctrl+Z**, or **Cmd+Z** on macOS). Changes are remembered in the active QuPath preference profile. Training annotations and classifiers are saved through their usual QuPath workflows. Save or export a trained model if you want to use it in a later session.
 
 ## Evaluate and compare
 

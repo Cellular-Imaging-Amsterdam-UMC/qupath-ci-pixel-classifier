@@ -1,0 +1,477 @@
+1
+00:00:01,050 --> 00:00:07,180
+This is the mouse pancreatic Islet image, opened in
+QuPath zero point seven.
+
+2
+00:00:07,360 --> 00:00:12,999
+We'll train a pixel classifier to highlight nuclei in
+the fluorescence image.
+
+3
+00:00:13,179 --> 00:00:19,304
+Along the way, we'll inspect the features, review the
+prediction against the source,
+
+4
+00:00:19,484 --> 00:00:22,578
+and reopen the saved model for editing.
+
+5
+00:00:22,758 --> 00:00:28,252
+Open the Islet image in a QuPath project. In
+Extensions,
+
+6
+00:00:28,432 --> 00:00:33,327
+open CI Pixel Classifier and choose Train classifier.
+
+7
+00:00:33,507 --> 00:00:39,786
+The workspace puts model settings, training data, and
+preview controls side by side.
+
+8
+00:00:39,966 --> 00:00:44,221
+Its recent settings are remembered in your QuPath
+profile.
+
+9
+00:00:44,401 --> 00:00:51,480
+Use Random trees and Class labels. For this image,
+set Downsample to two,
+
+10
+00:00:51,660 --> 00:00:57,055
+which is one micrometre per classifier pixel at the
+image's calibration.
+
+11
+00:00:57,235 --> 00:01:01,794
+Leave both image channels selected and start with a
+scale of one.
+
+12
+00:01:01,974 --> 00:01:06,344
+New workspaces enable all ten two-dimensional
+filters.
+
+13
+00:01:07,394 --> 00:01:12,498
+In the viewer, zoom in until you can see the
+individual blue nuclei.
+
+14
+00:01:12,678 --> 00:01:17,543
+Create a class named Nucleus in QuPath's Annotations
+pane.
+
+15
+00:01:17,723 --> 00:01:24,782
+Use the ellipse tool to mark a few representative
+nuclei, then assign Nucleus to those annotations.
+
+16
+00:01:24,962 --> 00:01:28,732
+Place each shape well inside a visible boundary.
+
+17
+00:01:28,912 --> 00:01:33,782
+Create a second class named Background with an
+asterisk at the end.
+
+18
+00:01:33,962 --> 00:01:40,141
+Add small shapes between nuclei and in darker
+regions, then assign that class.
+
+19
+00:01:40,321 --> 00:01:46,646
+The asterisk tells QuPath to skip this class when
+creating objects with the usual settings.
+
+20
+00:01:46,826 --> 00:01:50,880
+Its labelled pixels still help train the classifier.
+
+21
+00:01:51,060 --> 00:01:58,344
+Choose a mix of examples across the image. Include
+some difficult areas around the red signal,
+
+22
+00:01:58,524 --> 00:02:02,984
+and avoid annotations that cross from one class into
+the other.
+
+23
+00:02:03,164 --> 00:02:10,369
+Training data lists the number of unlocked
+annotations in each class. If a class is missing,
+
+24
+00:02:10,548 --> 00:02:14,348
+check the labels and whether the annotations are
+locked.
+
+25
+00:02:15,398 --> 00:02:23,268
+Choose Train classifier. The pixel counts and
+percentages underneath the annotation counts describe
+
+26
+00:02:23,448 --> 00:02:27,657
+the inputs actually sampled at the selected
+resolution.
+
+27
+00:02:27,837 --> 00:02:33,386
+The pie chart makes it easier to spot a class with
+very few sampled pixels.
+
+28
+00:02:33,566 --> 00:02:39,881
+Two classes can have the same number of annotations
+and contribute different numbers of pixels.
+
+29
+00:02:40,061 --> 00:02:47,340
+Check the class with fewer samples. A few additional
+examples from underrepresented parts
+
+30
+00:02:47,520 --> 00:02:52,285
+of the image can be more helpful than making one
+shape much larger.
+
+31
+00:02:52,465 --> 00:02:57,494
+The chevron in the top right folds the window down
+while you're annotating.
+
+32
+00:02:57,674 --> 00:03:02,374
+It stays in the same place, and the window keeps its
+width.
+
+33
+00:03:02,554 --> 00:03:06,898
+Live Prediction moves into the header while the
+window is folded.
+
+34
+00:03:07,078 --> 00:03:11,828
+Turn it on to retrain after changing the annotations
+or settings.
+
+35
+00:03:12,008 --> 00:03:16,008
+Click the chevron again to restore the full
+workspace.
+
+36
+00:03:16,188 --> 00:03:21,117
+Live Prediction returns to the Preview card with your
+selection intact.
+
+37
+00:03:21,297 --> 00:03:28,392
+The Undo arrow beside Export JSON uses QuPath's Undo
+history. On Windows,
+
+38
+00:03:28,572 --> 00:03:31,816
+Control Z is the keyboard shortcut.
+
+39
+00:03:32,866 --> 00:03:40,780
+In Preview, leave Show prediction in viewer enabled.
+Choose a prediction region and set the opacity
+
+40
+00:03:40,960 --> 00:03:44,430
+so you can still see the underlying image.
+
+41
+00:03:44,610 --> 00:03:52,000
+Pick a region that suits the task. You can keep
+prediction within annotations while correcting small
+
+42
+00:03:52,180 --> 00:03:56,854
+areas, or show it throughout the image when checking
+the result.
+
+43
+00:03:57,034 --> 00:04:04,958
+Turn on Compare with source. Drag the divider. The
+raw fluorescence remains on the left
+
+44
+00:04:05,138 --> 00:04:09,133
+and the classifier overlay is visible on the right.
+
+45
+00:04:09,313 --> 00:04:16,728
+Look for nuclei that disappear under the overlay.
+Also look for green predictions covering tissue
+
+46
+00:04:16,908 --> 00:04:19,707
+where there is no clear nucleus.
+
+47
+00:04:19,887 --> 00:04:26,552
+If the same mistake occurs in several places, add
+examples of that pattern and train again.
+
+48
+00:04:26,732 --> 00:04:31,676
+Sweep the divider over a different part of the field
+to review the change.
+
+49
+00:04:32,726 --> 00:04:37,846
+Select Show filters under Features to open the native
+QuPath preview.
+
+50
+00:04:38,026 --> 00:04:44,485
+The channel list identifies the image channel,
+filter, and scale used to compute each view.
+
+51
+00:04:44,665 --> 00:04:52,014
+Start with a Gaussian feature. Move or zoom the image
+viewer and select Refresh view to update
+
+52
+00:04:52,194 --> 00:04:54,879
+the region used by the popup.
+
+53
+00:04:55,059 --> 00:04:59,604
+Switch to a structure tensor feature to see a
+different response.
+
+54
+00:04:59,784 --> 00:05:04,568
+Brightness here shows the computed feature response
+at that location.
+
+55
+00:05:04,748 --> 00:05:10,192
+Open Advanced training settings to find local
+normalization and local scale.
+
+56
+00:05:10,372 --> 00:05:13,957
+These settings affect the features given to the
+model.
+
+57
+00:05:14,137 --> 00:05:19,236
+The same panel contains sampling and feature
+preprocessing controls.
+
+58
+00:05:19,416 --> 00:05:25,531
+Record changes that matter for your project so
+someone else can repeat your training setup.
+
+59
+00:05:25,711 --> 00:05:31,970
+With Random trees selected and principal component
+analysis off, choose Importance.
+
+60
+00:05:32,150 --> 00:05:37,745
+The separate fit ranks the original channel, filter,
+and scale combinations.
+
+61
+00:05:37,925 --> 00:05:42,304
+Select a row and click Show selected filter to
+inspect it.
+
+62
+00:05:42,484 --> 00:05:48,409
+Use the ranking together with the preview and
+validation when deciding whether to keep a feature.
+
+63
+00:05:49,459 --> 00:05:55,338
+To check how training transfers, put other annotated
+images into the project.
+
+64
+00:05:55,518 --> 00:06:01,483
+Use the same class names, and include every class on
+at least two images.
+
+65
+00:06:01,663 --> 00:06:09,998
+In Training data, choose project images. Move the
+extra images into the Selected column and select
+
+66
+00:06:10,178 --> 00:06:15,422
+Apply. The currently open image is included
+automatically.
+
+67
+00:06:15,602 --> 00:06:23,472
+Select Validate. For each fold, the extension fits on
+the other selected images and scores
+
+68
+00:06:23,652 --> 00:06:26,881
+the labelled pixels in the held-out image.
+
+69
+00:06:27,061 --> 00:06:33,516
+Read across a row in the confusion matrix. The row is
+the annotation class,
+
+70
+00:06:33,696 --> 00:06:37,895
+and the columns show the classes predicted for those
+pixels.
+
+71
+00:06:38,075 --> 00:06:44,984
+Open Class scores for precision, recall, and F one.
+For example,
+
+72
+00:06:45,164 --> 00:06:51,564
+weak nucleus recall means many annotated nucleus
+pixels were predicted as another class.
+
+73
+00:06:51,744 --> 00:06:59,074
+Open By image to see whether one field is harder.
+This demonstration uses annotated areas
+
+74
+00:06:59,254 --> 00:07:05,858
+from the same Islet specimen. Use independent images
+to assess a real workflow.
+
+75
+00:07:06,038 --> 00:07:12,702
+If you imported fitted preprocessing, select Fit new
+preprocessing before validation,
+
+76
+00:07:12,882 --> 00:07:17,577
+so each fold can learn those settings from its own
+training images.
+
+77
+00:07:18,627 --> 00:07:22,746
+Train with the settings and images you want in the
+final model.
+
+78
+00:07:22,926 --> 00:07:30,206
+Enter a classifier name in Save to project and select
+Save. Here the name is Islet nuclei.
+
+79
+00:07:30,386 --> 00:07:39,506
+Use Export JSON for a standalone file. The saved
+model uses QuPath's native pixel classifier format
+
+80
+00:07:39,686 --> 00:07:43,795
+and can be applied using the standard QuPath tools.
+
+81
+00:07:43,975 --> 00:07:50,344
+Under Extensions, open CI Pixel Classifier and choose
+Load classifier.
+
+82
+00:07:50,524 --> 00:07:57,484
+Select Islet nuclei from the project list, or use
+Open JSON to browse to a file.
+
+83
+00:07:57,664 --> 00:08:03,328
+The loader lets you preview the result and apply
+compatible classifiers straight away.
+
+84
+00:08:03,508 --> 00:08:07,958
+Check that the new image has the same required input
+channels.
+
+85
+00:08:08,138 --> 00:08:16,102
+Select Edit to close the loader and reopen the
+training workspace. The supported model, resolution,
+
+86
+00:08:16,282 --> 00:08:21,922
+channels, filters, and scales are restored from the
+classifier.
+
+87
+00:08:22,102 --> 00:08:27,362
+Check your training annotations and current sampling
+options before retraining.
+
+88
+00:08:27,542 --> 00:08:34,001
+These are managed by the project or workspace,
+alongside the fitted model in the JSON.
+
+89
+00:08:35,051 --> 00:08:42,496
+Use Create objects from the loader or training
+workspace. Choose Full image for this exercise.
+
+90
+00:08:42,676 --> 00:08:48,165
+For a smaller area, select a parent annotation in the
+viewer first.
+
+91
+00:08:48,345 --> 00:08:54,604
+Choose Annotation for editable outlines, or Detection
+if that fits your analysis.
+
+92
+00:08:54,784 --> 00:08:59,179
+Set a minimum object size in the calibrated area
+units.
+
+93
+00:08:59,359 --> 00:09:03,578
+Enable Split objects to make disconnected regions
+separate.
+
+94
+00:09:03,758 --> 00:09:10,438
+Leave the ignored-class option off to create nucleus
+objects without creating background objects.
+
+95
+00:09:10,618 --> 00:09:16,198
+Check the new outlines against the source, especially
+where nuclei touch.
+
+96
+00:09:16,378 --> 00:09:22,817
+Keep the classifier with the project so you can load
+it again or use it on another compatible image.
+
+97
+00:09:22,997 --> 00:09:29,596
+For the installation steps, individual screenshots,
+or a copy of the English captions,
+
+98
+00:09:29,776 --> 00:09:32,711
+return to the guide below this video.

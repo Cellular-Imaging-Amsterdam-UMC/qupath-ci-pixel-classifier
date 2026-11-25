@@ -71,7 +71,7 @@ final class ClassifierWorkspace {
     private static final Logger logger = LoggerFactory.getLogger(ClassifierWorkspace.class);
     private static final String TITLE = "CI Pixel Classifier";
     private static final int MIN_EXPANDED_HEIGHT = 490;
-    private static final String RETRAIN_LABEL = "Retrain when settings or annotations change";
+    private static final String LIVE_PREDICTION_LABEL = "Live Prediction";
 
     private final QuPathGUI qupath;
     private final SettingsStore store = new SettingsStore();
@@ -299,9 +299,9 @@ final class ClassifierWorkspace {
             comparePrediction.setDisable(!next || applicable.get() == null);
             refreshOverlay();
         });
-        autoTrain = new CheckBox(RETRAIN_LABEL);
-        autoTrain.setAccessibleText(RETRAIN_LABEL);
-        autoTrain.setTooltip(new Tooltip(RETRAIN_LABEL));
+        autoTrain = new CheckBox(LIVE_PREDICTION_LABEL);
+        autoTrain.setAccessibleText(LIVE_PREDICTION_LABEL);
+        autoTrain.setTooltip(new Tooltip("Retrain when settings or annotations change"));
         autoTrainSlot = new VBox(autoTrain);
         autoTrain.setId("auto-train");
         autoTrain.setWrapText(true);
@@ -827,12 +827,10 @@ final class ClassifierWorkspace {
     private void moveAutoTrain(HBox header, boolean collapsed) {
         if (collapsed) {
             autoTrainSlot.getChildren().clear();
-            autoTrain.setText("Auto retrain");
             autoTrain.setWrapText(false);
             header.getChildren().add(1, autoTrain);
         } else {
             header.getChildren().remove(autoTrain);
-            autoTrain.setText(RETRAIN_LABEL);
             autoTrain.setWrapText(true);
             autoTrainSlot.getChildren().setAll(autoTrain);
         }
