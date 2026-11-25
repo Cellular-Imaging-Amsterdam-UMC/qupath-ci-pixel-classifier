@@ -170,7 +170,8 @@ final class ClassifierWorkspace {
         var left = editor.node();
         left.setMinWidth(391);
         left.setPrefWidth(472);
-        var right = new VBox(12, trainingCard(), previewCard(), saveCard());
+        left.getChildren().add(saveCard());
+        var right = new VBox(12, trainingCard(), previewCard());
         right.setMinWidth(322);
         right.setPrefWidth(353);
         var body = new HBox(14, left, right);
@@ -694,7 +695,7 @@ final class ClassifierWorkspace {
         else if (classifier != null && classifierRevision != trainingRevision)
             status.setText("Training inputs changed. Train to update the model.");
         else if (annotationCounts().size() < 2 && trainingEntries.isEmpty())
-            status.setText("Use at least two classified training annotations.");
+            status.setText("Assign unlocked training annotations to at least two classes.");
         else
             status.setText("Ready to train.");
     }

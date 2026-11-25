@@ -14,6 +14,7 @@ import javafx.scene.control.TitledPane;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import org.controlsfx.control.CheckComboBox;
 import qupath.lib.classifiers.Normalization;
@@ -84,6 +85,7 @@ final class TrainingEditor {
         });
 
         var editParameters = new Button("Parameters…");
+        editParameters.setMinWidth(Region.USE_PREF_SIZE);
         editParameters.setOnAction(e -> editParameters());
         var resolutionPresets = new MenuButton("Presets");
         addChoice(resolutionPresets, "Full resolution · 1×", () -> setDownsample("1"));
@@ -109,6 +111,7 @@ final class TrainingEditor {
         channels.setMaxWidth(Double.MAX_VALUE);
         features.setMaxWidth(Double.MAX_VALUE);
         var useImageChannels = new Button("Use image channels");
+        useImageChannels.setMinWidth(Region.USE_PREF_SIZE);
         useImageChannels.getStyleClass().add("small-action");
         useImageChannels.setOnAction(e -> {
             updating = true;
