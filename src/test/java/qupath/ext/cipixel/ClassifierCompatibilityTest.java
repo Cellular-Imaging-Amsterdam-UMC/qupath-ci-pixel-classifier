@@ -38,6 +38,21 @@ class ClassifierCompatibilityTest {
     }
 
     @Test
+    void newRecipesPreviewAllTenTwoDimensionalFilters() throws Exception {
+        try (var image = testImage()) {
+            var settings = TrainingSettings.defaults(image);
+            assertEquals(10, settings.features().features().size());
+            var preview = FeaturePreviewWindow.sample(settings, image, 64, 64, 0, 0);
+            assertEquals(10, preview.bands());
+            assertEquals(10, preview.names().size());
+            assertEquals(32, preview.width());
+            assertEquals(32, preview.height());
+            assertEquals(10 * 32 * 32, preview.values().length);
+            assertTrue(preview.names().stream().anyMatch(name -> name.contains("Gaussian")));
+        }
+    }
+
+    @Test
     void trainsExportsAndReloadsWithTheNativeQuPathReader() throws Exception {
         try (var image = testImage()) {
             var settings = probabilitySettings(image);

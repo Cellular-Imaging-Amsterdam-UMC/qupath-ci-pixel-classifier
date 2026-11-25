@@ -7,15 +7,17 @@ import javafx.beans.property.ObjectProperty;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
-import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
-import javafx.scene.control.MenuButton;
+import javafx.scene.control.Labeled;
+import javafx.scene.control.Menu;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
+import javafx.scene.control.TitledPane;
+import javafx.scene.image.ImageView;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 import javafx.util.Duration;
@@ -59,7 +61,7 @@ public final class DesktopSmokeExtension implements QuPathExtension {
         var timer = new Timeline();
         timer.getKeyFrames().add(new KeyFrame(Duration.millis(250), e -> {
             if (qupath.getImageData() != null && qupath.getMenu("Extensions", false).getItems().stream()
-                    .anyMatch(item -> "CI Pixel Classifier…".equals(item.getText()))) {
+                    .anyMatch(item -> "CI Pixel Classifier".equals(item.getText()))) {
                 timer.stop();
                 Platform.runLater(() -> safely(this::test));
             } else if (System.nanoTime() > deadline) {
@@ -128,35 +130,96 @@ public final class DesktopSmokeExtension implements QuPathExtension {
 
         setTheme("Dark");
         showWorkspace();
-        var load = workspace.getScene().getRoot().lookupAll(".menu-button").stream()
-                .filter(MenuButton.class::isInstance).map(MenuButton.class::cast)
-                .filter(m -> m.getText().equals("Load classifier")).findFirst().orElseThrow();
-        Platform.runLater(() -> safely(() -> {
-            var dialog = Window.getWindows().stream().filter(w -> w.getScene() != null)
-                    .map(w -> w.getScene().lookup(".dialog-pane")).filter(DialogPane.class::isInstance)
-                    .map(DialogPane.class::cast).findFirst().orElseThrow();
-            ((Button) dialog.lookupButton(ButtonType.OK)).fire();
-        }));
-        load.getItems().stream().filter(i -> i.getText().equals("Open from project…"))
-                .findFirst().orElseThrow().fire();
+        require(!workspace.getIcons().isEmpty(), "Training window is missing its icon");
+        var features = (org.controlsfx.control.CheckComboBox<?>) workspace.getScene().lookup("#feature-types");
+        require(features.getCheckModel().getCheckedItems().size() == 10,
+                "A new workspace did not enable the ten 2D filters");
+        var advanced = (TitledPane) workspace.getScene().lookup("#advanced-training");
+        advanced.setExpanded(true);
+        workspace.getScene().getRoot().applyCss();
+        require(advanced.lookup("#local-scale") != null, "Local scale is not in advanced training settings");
+        advanced.setExpanded(false);
 
-        await(() -> status().startsWith("Loaded"), () -> {
+        var toggle = (ToggleButton) workspace.getScene().lookup("#training-layout-toggle");
+        double width = workspace.getWidth();
+        double height = workspace.getHeight();
+        toggle.fire();
+        await(() -> workspace.getHeight() < 120, () -> {
+            require(workspace.getScene().lookup("#training-body") == null, "Collapsed window still shows the editor");
+            require(workspace.getWidth() < 400, "Collapsed window did not shrink");
+            snapshot("workspace-collapsed.png");
+            toggle.fire();
+            await(() -> Math.abs(workspace.getHeight() - height) < 2, () -> {
+                require(Math.abs(workspace.getWidth() - width) < 2, "Expanded window did not restore the width");
+                openFromLoader();
+            });
+        });
+    }
+
+    private void openFromLoader() {
+        extensionItem("Load classifier…").fire();
+        var loader = visibleStage("CI Pixel Classifier · Load classifier");
+        require(!workspace.isShowing(), "Training window stayed visible behind the loader");
+        require(!loader.getIcons().isEmpty(), "Loader is missing its icon");
+        loader.getScene().getRoot().applyCss();
+        var projectClassifiers = (ComboBox<?>) loader.getScene().lookup("#load-project-classifier");
+        projectClassifiers.getSelectionModel().select(0);
+        var loadStatus = (Label) loader.getScene().lookup("#load-classifier-status");
+        await(() -> loadStatus.getText().contains("Loaded resolution"), () -> {
+            require(qupath.getViewer().getCustomPixelLayerOverlay() instanceof PixelClassificationOverlay,
+                    "Loaded classifier has no viewer preview");
+            snapshot(loader, "loader-dark.png");
+            ((Button) loader.getScene().lookup("#edit-loaded-classifier")).fire();
+            require(!loader.isShowing() && workspace.isShowing(), "Edit did not switch to the training window");
             require(status().contains("channels, features, scales"), status());
-            var importedOverlay = qupath.getViewer().getCustomPixelLayerOverlay();
-            require(importedOverlay instanceof PixelClassificationOverlay, "Imported model has no viewer preview");
             require(text("feature-scales").equals("1"), "Native Gaussian scale was not recovered");
-            ((TextField) workspace.getScene().lookup("#downsample")).setText("3");
-            ((TextField) workspace.getScene().lookup("#feature-scales")).setText("0.5, 2, 4");
-            ((Slider) workspace.getScene().lookup("#preview-opacity")).setValue(0.37);
-            @SuppressWarnings("unchecked")
-            var region = (ComboBox<StandardRegionFilters>) workspace.getScene().lookup("#preview-region");
-            region.setValue(StandardRegionFilters.ANY_ANNOTATIONS);
-            ((Button) workspace.getScene().lookup("#train")).fire();
-            await(() -> status().equals("Training complete."), this::verifyTrained);
+            var features = (org.controlsfx.control.CheckComboBox<?>) workspace.getScene().lookup("#feature-types");
+            require(features.getCheckModel().getCheckedItems().size() == 1, "Import did not preserve the saved filter selection");
+            features.applyCss();
+            require(features.lookupAll(".list-cell").stream().filter(Labeled.class::isInstance)
+                            .map(Labeled.class::cast).anyMatch(cell -> cell.getText() != null && cell.getText().contains("1/10")),
+                    "The filter selector did not show the imported selection count");
+            features.getCheckModel().check(1);
+            verifyFeaturePreview();
+        });
+    }
+
+    private void verifyFeaturePreview() {
+        ((Button) workspace.getScene().lookup("#show-filters")).fire();
+        var preview = visibleStage("CI Pixel Classifier · Filter preview");
+        require(!preview.getIcons().isEmpty(), "Filter preview is missing its icon");
+        var imageView = (ImageView) preview.getScene().lookup("#preview-feature-image");
+        await(() -> imageView.getImage() != null, () -> {
+            require(imageView.getImage().getWidth() > 0, "Feature preview returned an empty image");
+            var bands = (ComboBox<?>) preview.getScene().lookup("#preview-feature-band");
+            require(bands.getItems().size() == 2, "The filter preview did not expose both feature channels");
+            var first = imageView.getImage();
+            bands.getSelectionModel().selectLast();
+            require(imageView.getImage() != first, "Selecting another feature did not update the preview");
+            snapshot(preview, "filters-dark.png");
+            setTheme("Light");
+            await(() -> true, () -> {
+                snapshot(preview, "filters-light.png");
+                preview.hide();
+                setTheme("Dark");
+                ((TextField) workspace.getScene().lookup("#downsample")).setText("3");
+                ((TextField) workspace.getScene().lookup("#feature-scales")).setText("0.5, 2, 4");
+                ((Slider) workspace.getScene().lookup("#preview-opacity")).setValue(0.37);
+                @SuppressWarnings("unchecked")
+                var region = (ComboBox<StandardRegionFilters>) workspace.getScene().lookup("#preview-region");
+                region.setValue(StandardRegionFilters.ANY_ANNOTATIONS);
+                ((Button) workspace.getScene().lookup("#train")).fire();
+                await(() -> status().equals("Training complete."), this::verifyTrained);
+            });
         });
     }
 
     private void verifyTrained() throws Exception {
+        var shares = workspace.getScene().getRoot().lookupAll("#training-pixel-share");
+        require(shares.size() >= 2, "Missing class pixel proportions");
+        double totalShare = shares.stream().map(Label.class::cast).map(Label::getText)
+                .map(s -> s.replace(',', '.').replace("%", "")).mapToDouble(Double::parseDouble).sum();
+        require(Math.abs(totalShare - 100) <= 0.3, "Class pixel proportions do not sum to 100%");
         var viewer = qupath.getViewer();
         require(viewer.getCustomPixelLayerOverlay() instanceof PixelClassificationOverlay, "Missing trained overlay");
         var overlay = (PixelClassificationOverlay) viewer.getCustomPixelLayerOverlay();
@@ -194,20 +257,33 @@ public final class DesktopSmokeExtension implements QuPathExtension {
         return image.getRaster().getPixels(0, 0, image.getWidth(), image.getHeight(), (int[]) null);
     }
 
+    private MenuItem extensionItem(String text) {
+        var menu = (Menu) qupath.getMenu("Extensions", false).getItems().stream()
+                .filter(item -> "CI Pixel Classifier".equals(item.getText())).findFirst().orElseThrow();
+        return menu.getItems().stream().filter(item -> text.equals(item.getText())).findFirst().orElseThrow();
+    }
+
+    private static Stage visibleStage(String title) {
+        return Window.getWindows().stream().filter(Stage.class::isInstance).map(Stage.class::cast)
+                .filter(s -> s.getTitle().equals(title)).findFirst().orElseThrow();
+    }
+
     private void showWorkspace() {
-        qupath.getMenu("Extensions", false).getItems().stream().filter(item -> "CI Pixel Classifier…".equals(item.getText()))
-                .findFirst().orElseThrow().fire();
-        workspace = Window.getWindows().stream().filter(Stage.class::isInstance).map(Stage.class::cast)
-                .filter(s -> s.getTitle().equals("CI Pixel Classifier")).findFirst().orElseThrow();
+        extensionItem("Train classifier…").fire();
+        workspace = visibleStage("CI Pixel Classifier");
         workspace.getScene().getRoot().applyCss();
         workspace.getScene().getRoot().layout();
     }
 
     private void snapshot(String name) throws Exception {
-        var root = workspace.getScene().getRoot();
+        snapshot(workspace, name);
+    }
+
+    private void snapshot(Stage window, String name) throws Exception {
+        var root = window.getScene().getRoot();
         root.applyCss();
         root.layout();
-        ImageIO.write(SwingFXUtils.fromFXImage(workspace.getScene().snapshot(null), null), "png", output.resolve(name).toFile());
+        ImageIO.write(SwingFXUtils.fromFXImage(window.getScene().snapshot(null), null), "png", output.resolve(name).toFile());
     }
 
     private static void setTheme(String mode) {

@@ -7,14 +7,14 @@ import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.concurrent.Task;
 import javafx.geometry.Pos;
-import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.ToggleButton;
 import javafx.scene.control.CheckBox;
-import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuButton;
-import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
@@ -31,16 +31,11 @@ import javafx.stage.Stage;
 import javafx.util.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import qupath.fx.dialogs.Dialogs;
 import qupath.lib.classifiers.pixel.PixelClassifier;
 import qupath.lib.gui.QuPathGUI;
 import qupath.lib.gui.dialogs.ProjectDialogs;
-import qupath.lib.gui.prefs.PathPrefs;
-import qupath.lib.gui.viewer.OverlayOptions;
 import qupath.lib.gui.viewer.QuPathViewer;
 import qupath.lib.gui.viewer.RegionFilter.StandardRegionFilters;
-import qupath.lib.gui.viewer.overlays.PathOverlay;
-import qupath.lib.gui.viewer.overlays.PixelClassificationOverlay;
 import qupath.lib.images.ImageData;
 import qupath.lib.images.servers.ServerTools;
 import qupath.lib.objects.PathObject;
@@ -53,7 +48,6 @@ import qupath.process.gui.commands.ml.PixelClassifierUI;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -93,7 +87,7 @@ final class ClassifierWorkspace {
     private Label imageLabel;
     private Label status;
     private Label modelStatus;
-    private Label trainingPixels;
+    private TrainingSampleChart trainingPixels;
     private Label projectImagesLabel;
     private VBox classRows;
     private Button train;
@@ -103,7 +97,6 @@ final class ClassifierWorkspace {
     private Slider opacity;
     private javafx.scene.control.ComboBox<StandardRegionFilters> previewRegion;
     private ProgressIndicator progress;
-    private MenuItem loadProject;
     private PathObjectHierarchy hierarchy;
     private TrainingSettings lastValid;
     private Map<PathClass, Integer> sampleCounts = Map.of();
@@ -116,14 +109,41 @@ final class ClassifierWorkspace {
     private String modelSource;
     private String activityStatus;
     private File lastDirectory;
-    private PixelClassificationOverlay overlay;
-    private final OverlayOptions previewOptions = new OverlayOptions();
-    private QuPathViewer overlayViewer;
-    private PathOverlay previousOverlay;
+    private Runnable openLoader;
+    private FeaturePreviewWindow featurePreview;
+    private final ViewerPrediction prediction = new ViewerPrediction();
+    private ToggleButton compact;
+    private double expandedX, expandedY, expandedWidth, expandedHeight;
+    private boolean expandedMaximized;
 
     ClassifierWorkspace(QuPathGUI qupath) {
         this.qupath = qupath;
-        previewOptions.setShowPixelClassification(true);
+    }
+
+    void setLoader(Runnable openLoader) {
+        this.openLoader = openLoader;
+    }
+
+    void switchTo(Runnable next) {
+        if (busy)
+            return;
+        if (stage != null)
+            stage.hide();
+        next.run();
+    }
+
+    TrainingSettings settingsForImport() {
+        if (lastValid != null)
+            return lastValid;
+        var remembered = store.load();
+        return remembered != null ? remembered : TrainingSettings.defaults(qupath.getImageData());
+    }
+
+    void openForEditing(NativeClassifierIO.Imported result, String source, String projectName) {
+        show();
+        compact.setSelected(false);
+        acceptImport(result, source, projectName);
+        updateState();
     }
 
     void show() {
@@ -144,41 +164,44 @@ final class ClassifierWorkspace {
         stage = new Stage();
         stage.initOwner(qupath.getStage());
         stage.setTitle(TITLE);
-        stage.setMinWidth(810);
-        stage.setMinHeight(585);
+        WindowStyle.decorate(stage);
+        stage.setMinWidth(685);
+        stage.setMinHeight(490);
 
         var title = new Label(TITLE);
         title.getStyleClass().add("workspace-title");
         imageLabel = note("");
         imageLabel.setWrapText(false);
         imageLabel.setMinWidth(0);
-        var load = new MenuButton("Load classifier");
-        addChoice(load, "Import JSON…", this::loadFile);
-        loadProject = new MenuItem("Open from project…");
-        loadProject.setOnAction(e -> loadProject());
-        load.getItems().add(loadProject);
+        var load = new Button("Load…");
+        load.setOnAction(e -> openLoader.run());
+        compact = new ToggleButton("Collapse");
+        compact.setId("training-layout-toggle");
+        compact.setMinWidth(Region.USE_PREF_SIZE);
+        compact.setTooltip(new Tooltip("Collapse the training window while annotating the image."));
         var reset = new MenuButton("Settings");
         addChoice(reset, "Reset training settings", () -> {
             applySettings(TrainingSettings.defaults(image.get()));
             trainingChanged();
         });
-        var header = row(new VBox(3, title, imageLabel), load, reset);
+        var header = row(new VBox(2, title, imageLabel), load, reset, compact);
         header.setAlignment(Pos.CENTER_LEFT);
         header.getStyleClass().add("workspace-header");
 
-        editor = new TrainingEditor(this::trainingChanged);
+        editor = new TrainingEditor(this::trainingChanged, this::showFeatures);
         var left = editor.node();
-        left.setMinWidth(391);
-        left.setPrefWidth(472);
+        left.setMinWidth(345);
+        left.setPrefWidth(390);
         left.getChildren().add(saveCard());
-        var right = new VBox(12, trainingCard(), previewCard());
-        right.setMinWidth(322);
-        right.setPrefWidth(353);
-        var body = new HBox(14, left, right);
+        var right = new VBox(8, trainingCard(), previewCard());
+        right.setMinWidth(286);
+        right.setPrefWidth(320);
+        var body = new HBox(9, left, right);
         HBox.setHgrow(left, Priority.ALWAYS);
         HBox.setHgrow(right, Priority.ALWAYS);
         body.getStyleClass().add("workspace-body");
         var scroll = new ScrollPane(body);
+        scroll.setId("training-body");
         scroll.setFitToWidth(true);
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scroll.getStyleClass().add("workspace-scroll");
@@ -203,10 +226,15 @@ final class ClassifierWorkspace {
         footer.getStyleClass().add("workspace-footer");
 
         var root = new BorderPane(scroll, header, null, footer, null);
-        root.getStyleClass().add("ci-pixel");
         double screenHeight = Screen.getPrimary().getVisualBounds().getHeight();
-        var scene = new Scene(root, 890, Math.max(560, Math.min(880, screenHeight - 70)));
-        scene.getStylesheets().add(ClassifierWorkspace.class.getResource("workspace.css").toExternalForm());
+        var scene = WindowStyle.scene(root, 745, Math.max(480, Math.min(735, screenHeight - 70)));
+        compact.selectedProperty().addListener((v, old, collapsed) -> {
+            load.setVisible(!collapsed);
+            load.setManaged(!collapsed);
+            reset.setVisible(!collapsed);
+            reset.setManaged(!collapsed);
+            setCollapsed(root, scroll, footer, collapsed);
+        });
         stage.setScene(scene);
         stage.setOnHidden(e -> hide());
         load.disableProperty().bind(progress.visibleProperty());
@@ -229,7 +257,7 @@ final class ClassifierWorkspace {
         var instructions = note("Draw and classify unlocked annotations in the viewer. Use at least two classes.");
         classRows = new VBox(6);
         classRows.setId("training-classes");
-        trainingPixels = note("");
+        trainingPixels = new TrainingSampleChart();
         var more = new Button("Choose project images…");
         more.disableProperty().bind(qupath.projectProperty().isNull());
         more.setOnAction(e -> chooseTrainingImages());
@@ -259,13 +287,9 @@ final class ClassifierWorkspace {
         previewRegion = combo(StandardRegionFilters.values());
         previewRegion.setId("preview-region");
         previewRegion.valueProperty().addListener((v, old, next) -> {
-            if (next != null)
-                previewOptions.setPixelClassificationRegionFilter(next);
-            if (!applyingSettings) {
+            prediction.setRegion(next);
+            if (!applyingSettings)
                 remember();
-                if (overlayViewer != null)
-                    overlayViewer.repaint();
-            }
         });
         opacity = new Slider(0, 1, 0.55);
         opacity.setId("preview-opacity");
@@ -273,10 +297,7 @@ final class ClassifierWorkspace {
         percent.setMinWidth(37);
         percent.textProperty().bind(opacity.valueProperty().multiply(100).asString("%.0f%%"));
         opacity.valueProperty().addListener((v, old, next) -> {
-            if (overlay != null) {
-                overlay.setOpacity(next.doubleValue());
-                overlayViewer.repaint();
-            }
+            prediction.setOpacity(next.doubleValue());
             if (!applyingSettings)
                 remember();
         });
@@ -359,6 +380,8 @@ final class ClassifierWorkspace {
         if (hierarchy != null)
             hierarchy.removeListener(hierarchyListener);
         boolean imageChanged = image.get() != next;
+        if (imageChanged && featurePreview != null)
+            featurePreview.hide();
         if (imageChanged && trainedFromAnnotations) {
             // The trained model stays available to apply to another compatible image.
             trainingRevision++;
@@ -435,15 +458,7 @@ final class ClassifierWorkspace {
     }
 
     private void updateSampleSummary() {
-        boolean show = !sampleCounts.isEmpty() && classifierRevision == trainingRevision;
-        trainingPixels.setVisible(show);
-        trainingPixels.setManaged(show);
-        if (show) {
-            int total = sampleCounts.values().stream().mapToInt(Integer::intValue).sum();
-            trainingPixels.setText(String.format("%,d training pixels across %d classes.", total, sampleCounts.size()));
-            trainingPixels.setTooltip(new Tooltip(String.join("\n", sampleCounts.entrySet().stream()
-                    .map(e -> String.format("%s  •  %,d pixels", e.getKey(), e.getValue())).toList())));
-        }
+        trainingPixels.update(sampleCounts, classifierRevision == trainingRevision);
     }
 
     private void chooseTrainingImages() {
@@ -452,8 +467,14 @@ final class ClassifierWorkspace {
             return;
         var choices = ProjectDialogs.createImageChoicePane(qupath, project.getImageList(), trainingEntries,
                 "The open image is already included.");
-        if (Dialogs.builder().title("Training images").content(choices).resizable()
-                .buttons(ButtonType.APPLY, ButtonType.CANCEL).showAndWait().orElse(ButtonType.CANCEL) == ButtonType.APPLY) {
+        var dialog = new Dialog<ButtonType>();
+        dialog.initOwner(stage);
+        dialog.setTitle("Training images");
+        dialog.setResizable(true);
+        dialog.getDialogPane().setContent(choices);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.APPLY, ButtonType.CANCEL);
+        WindowStyle.decorate(dialog);
+        if (dialog.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.APPLY) {
             trainingEntries.clear();
             trainingEntries.addAll(choices.getTargetItems());
             trainingChanged();
@@ -541,45 +562,6 @@ final class ClassifierWorkspace {
         saveDelay.playFromStart();
     }
 
-    private void loadFile() {
-        var chooser = chooser("Open QuPath pixel classifier");
-        var file = chooser.showOpenDialog(stage);
-        if (file == null)
-            return;
-        lastDirectory = file.getParentFile();
-        var settings = lastValid;
-        run("Reading classifier…", () -> NativeClassifierIO.read(file.toPath(), settings),
-                result -> acceptImport(result, file.getName(), ""));
-    }
-
-    private void loadProject() {
-        var project = qupath.getProject();
-        if (project == null)
-            return;
-        try {
-            var resources = project.getPixelClassifiers();
-            var names = resources.getNames().stream().sorted().toList();
-            if (names.isEmpty()) {
-                activityStatus = "This project has no saved pixel classifiers.";
-                updateState();
-                return;
-            }
-            var dialog = new ChoiceDialog<>(names.getFirst(), names);
-            dialog.initOwner(stage);
-            dialog.setTitle("Open project classifier");
-            dialog.setHeaderText("Choose a saved pixel classifier");
-            dialog.setContentText("Classifier");
-            dialog.showAndWait().ifPresent(name -> {
-                var settings = lastValid;
-                run("Reading classifier…", () -> NativeClassifierIO.inspect(resources.get(name), settings),
-                        result -> acceptImport(result, name, qupath.getProject() == project ? name : ""));
-            });
-        } catch (IOException e) {
-            reportError(e);
-            updateState();
-        }
-    }
-
     private void acceptImport(NativeClassifierIO.Imported result, String source, String projectName) {
         trainDelay.stop();
         pendingTrain = false;
@@ -612,8 +594,15 @@ final class ClassifierWorkspace {
         var output = file.toPath();
         if (!file.getName().toLowerCase(java.util.Locale.ROOT).endsWith(".json")) {
             output = output.resolveSibling(file.getName() + ".json");
-            if (java.nio.file.Files.exists(output) && !Dialogs.showConfirmDialog(TITLE, "Replace " + output.getFileName() + "?"))
-                return;
+            if (java.nio.file.Files.exists(output)) {
+                var confirmation = new Alert(Alert.AlertType.CONFIRMATION, "Replace " + output.getFileName() + "?");
+                confirmation.initOwner(stage);
+                confirmation.setTitle(TITLE);
+                confirmation.setHeaderText(null);
+                WindowStyle.decorate(confirmation);
+                if (confirmation.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK)
+                    return;
+            }
         }
         var path = output;
         run("Exporting classifier…", () -> {
@@ -678,7 +667,6 @@ final class ClassifierWorkspace {
         applicable.set(compatible ? classifier : null);
         train.setDisable(image.get() == null || busy);
         export.setDisable(classifier == null || busy);
-        loadProject.setDisable(qupath.getProject() == null);
         showOverlay.setDisable(!compatible);
         progress.setVisible(busy);
         var label = classifier == null ? "No classifier loaded or trained." : modelSource;
@@ -701,31 +689,54 @@ final class ClassifierWorkspace {
     }
 
     private void refreshOverlay() {
-        clearOverlay();
-        var classifier = active.get();
-        var data = image.get();
         var viewer = qupath.getViewer();
-        if (!stage.isShowing() || !showOverlay.isSelected() || classifier == null || data == null || viewer == null ||
-                viewer.getImageData() != data || !classifier.supportsImage(data))
-            return;
-        overlayViewer = viewer;
-        previousOverlay = viewer.getCustomPixelLayerOverlay();
-        overlay = PixelClassificationOverlay.create(previewOptions, classifier,
-                Math.max(1, Math.min(8, PathPrefs.numCommandThreadsProperty().get())));
-        overlay.setOpacity(opacity.getValue());
-        overlay.setLivePrediction(true);
-        viewer.setCustomPixelLayerOverlay(overlay);
+        boolean show = stage.isShowing() && showOverlay.isSelected() && viewer != null
+                && viewer.getImageData() == image.get();
+        prediction.show(show ? viewer : null, active.get(), opacity.getValue());
     }
 
-    private void clearOverlay() {
-        if (overlay == null)
-            return;
-        if (overlayViewer.getCustomPixelLayerOverlay() == overlay)
-            overlayViewer.setCustomPixelLayerOverlay(previousOverlay);
-        overlay.stop();
-        overlay = null;
-        overlayViewer = null;
-        previousOverlay = null;
+    private void showFeatures() {
+        if (featurePreview == null)
+            featurePreview = new FeaturePreviewWindow(stage, qupath::getViewer, this::readSettings, worker);
+        featurePreview.show();
+    }
+
+    private void setCollapsed(BorderPane root, ScrollPane scroll, HBox footer, boolean collapsed) {
+        compact.setText(collapsed ? "Expand" : "Collapse");
+        if (collapsed) {
+            if (featurePreview != null)
+                featurePreview.hide();
+            expandedX = stage.getX();
+            expandedY = stage.getY();
+            expandedWidth = stage.getWidth();
+            expandedHeight = stage.getHeight();
+            expandedMaximized = stage.isMaximized();
+            var screens = Screen.getScreensForRectangle(expandedX, expandedY, expandedWidth, expandedHeight);
+            var bounds = (screens.isEmpty() ? Screen.getPrimary() : screens.getFirst()).getVisualBounds();
+            stage.setMaximized(false);
+            root.getStyleClass().add("compact");
+            root.setCenter(null);
+            root.setBottom(null);
+            stage.setMinWidth(325);
+            stage.setMinHeight(70);
+            stage.setWidth(335);
+            stage.setHeight(88);
+            stage.setX(bounds.getMaxX() - 350);
+            stage.setY(bounds.getMinY() + 18);
+            stage.setResizable(false);
+        } else {
+            stage.setResizable(true);
+            root.getStyleClass().remove("compact");
+            root.setCenter(scroll);
+            root.setBottom(footer);
+            stage.setMinWidth(685);
+            stage.setMinHeight(490);
+            stage.setX(expandedX);
+            stage.setY(expandedY);
+            stage.setWidth(expandedWidth);
+            stage.setHeight(expandedHeight);
+            stage.setMaximized(expandedMaximized);
+        }
     }
 
     private void hide() {
@@ -740,6 +751,8 @@ final class ClassifierWorkspace {
         saveDelay.stop();
         if (lastValid != null)
             store.save(lastValid);
-        clearOverlay();
+        if (featurePreview != null)
+            featurePreview.hide();
+        prediction.clear();
     }
 }

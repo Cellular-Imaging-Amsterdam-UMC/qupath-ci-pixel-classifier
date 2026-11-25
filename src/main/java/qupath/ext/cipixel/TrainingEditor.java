@@ -18,7 +18,9 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import org.controlsfx.control.CheckComboBox;
 import qupath.lib.classifiers.Normalization;
-import qupath.lib.gui.tools.GuiTools;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Dialog;
+import qupath.lib.gui.dialogs.ParameterPanelFX;
 import qupath.lib.images.ImageData;
 import qupath.lib.images.servers.ImageServerMetadata.ChannelType;
 import qupath.lib.images.servers.PixelCalibration;
@@ -56,6 +58,7 @@ final class TrainingEditor {
     private final Label fittedHint = note("");
     private final VBox featureFields;
     private final VBox importedFields;
+    private final HBox localFields;
     private final VBox customPreprocessing;
     private final VBox fittedFields;
     private final Runnable onChange;
@@ -67,12 +70,15 @@ final class TrainingEditor {
     private ImageData<BufferedImage> image;
     private boolean updating;
 
-    TrainingEditor(Runnable onChange) {
+    TrainingEditor(Runnable onChange, Runnable showFeatures) {
         this.onChange = onChange;
         model.setId("model");
         output.setId("output-type");
         channels.setId("feature-channels");
         features.setId("feature-types");
+        features.setTitle("Selected");
+        features.setShowCheckedCount(true);
+        output.setMinWidth(115);
         boundaryClass.setMaxWidth(Double.MAX_VALUE);
         output.setConverter(new javafx.util.StringConverter<>() {
             @Override public String toString(ChannelType type) {
@@ -88,6 +94,7 @@ final class TrainingEditor {
         editParameters.setMinWidth(Region.USE_PREF_SIZE);
         editParameters.setOnAction(e -> editParameters());
         var resolutionPresets = new MenuButton("Presets");
+        resolutionPresets.setMinWidth(Region.USE_PREF_SIZE);
         addChoice(resolutionPresets, "Full resolution · 1×", () -> setDownsample("1"));
         addChoice(resolutionPresets, "Fine · 2×", () -> setDownsample("2"));
         addChoice(resolutionPresets, "Balanced · 4×", () -> setDownsample("4"));
@@ -126,11 +133,11 @@ final class TrainingEditor {
         addChoice(scalePresets, "Broad structures · 4, 8, 16", () -> scales.setText("4, 8, 16"));
         var localScaleField = field("Local scale", localScale);
         localScaleField.disableProperty().bind(local.valueProperty().isEqualTo(FeatureRecipe.LocalNormalization.NONE));
-        featureFields = new VBox(9,
+        localFields = columns(field("Local normalization", local), localScaleField);
+        featureFields = new VBox(6,
                 field("Channels", channels, row(channels, useImageChannels)), missingChannels,
                 field("Feature filters", features),
-                field("Scales in classifier pixels", scales, row(scales, scalePresets)),
-                columns(field("Local normalization", local), localScaleField));
+                field("Scales in classifier pixels", scales, row(scales, scalePresets)));
         var replacePipeline = new Button("Use editable features");
         replacePipeline.setOnAction(e -> {
             importedPipeline = null;
@@ -140,6 +147,12 @@ final class TrainingEditor {
         importedFields = new VBox(9, note("Training will reuse the imported feature pipeline exactly."),
                 replacePipeline);
         var featuresCard = card("Features", featureFields, importedFields);
+        var preview = new Button("Show filters…");
+        preview.setId("show-filters");
+        preview.setOnAction(e -> showFeatures.run());
+        var featureHeader = row(featuresCard.getChildren().removeFirst(), preview);
+        featureHeader.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        featuresCard.getChildren().addFirst(featureHeader);
 
         var clearFitted = new Button("Fit new preprocessing");
         clearFitted.setOnAction(e -> {
@@ -155,15 +168,17 @@ final class TrainingEditor {
         boundaryClassField.disableProperty().bind(boundary.valueProperty().isNotEqualTo(TrainingSettings.Boundary.ONE_CLASS));
         var boundaryWidthField = field("Thickness in source pixels", boundaryWidth);
         boundaryWidthField.disableProperty().bind(boundary.valueProperty().isEqualTo(TrainingSettings.Boundary.IGNORE));
-        var advanced = new TitledPane("Advanced training settings", new VBox(10,
+        var advanced = new TitledPane("Advanced training settings", new VBox(8,
+                localFields,
                 columns(field("Maximum samples", maxSamples), field("Random seed", seed)), balance,
                 note("Set maximum samples to 0 to use every training pixel."),
                 customPreprocessing, fittedFields, field("Annotation boundaries", boundary),
                 columns(boundaryWidthField, boundaryClassField)));
+        advanced.setId("advanced-training");
         advanced.setExpanded(false);
         advanced.setAnimated(false);
 
-        content = new VBox(12, modelCard, featuresCard, advanced);
+        content = new VBox(8, modelCard, featuresCard, advanced);
         content.setFillWidth(true);
 
         model.valueProperty().addListener((v, old, next) -> {
@@ -228,7 +243,7 @@ final class TrainingEditor {
         var recipe = settings.features();
         setChannels(recipe.channels());
         var allFeatures = new LinkedHashSet<>(recipe.features());
-        Arrays.stream(MultiscaleFeature.values()).filter(MultiscaleFeature::supports2D).forEach(allFeatures::add);
+        allFeatures.addAll(FeatureRecipe.supportedFilters());
         features.getItems().setAll(allFeatures);
         features.getCheckModel().clearChecks();
         recipe.features().forEach(features.getCheckModel()::check);
@@ -289,7 +304,13 @@ final class TrainingEditor {
 
     private void editParameters() {
         var params = model.getValue().create(parameters).getParameterList();
-        if (GuiTools.showParameterDialog("Classifier parameters", params)) {
+        var dialog = new Dialog<ButtonType>();
+        dialog.initOwner(content.getScene().getWindow());
+        dialog.setTitle("Classifier parameters");
+        dialog.getDialogPane().setContent(new ParameterPanelFX(params).getPane());
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        WindowStyle.decorate(dialog);
+        if (dialog.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK) {
             var copy = new java.util.LinkedHashMap<String, String>();
             params.getKeyValueParameters(false).forEach((key, value) -> copy.put(key, value.toString()));
             parameters = Map.copyOf(copy);
@@ -345,6 +366,7 @@ final class TrainingEditor {
     private void updateModes() {
         setVisible(featureFields, importedPipeline == null);
         setVisible(importedFields, importedPipeline != null);
+        setVisible(localFields, importedPipeline == null);
         setVisible(customPreprocessing, fitted == null);
         setVisible(fittedFields, fitted != null);
         fittedHint.setText("Training will reuse the fitted preprocessing from the imported classifier.");
@@ -381,8 +403,6 @@ final class TrainingEditor {
 
     private void updateSelectionTitles() {
         var selected = channels.getCheckModel().getCheckedItems();
-        channels.setTitle(selected.isEmpty() ? "Select channels" : selected.size() == 1
-                ? channels.getConverter().toString(selected.getFirst()) : selected.size() + " channels");
         var names = selected.stream().map(FeatureRecipe::decodeChannel).map(c -> c.getName()).toList();
         channels.setTooltip(names.isEmpty() ? null : new Tooltip(String.join(", ", names)));
         var missing = image == null ? List.<String>of() : selected.stream().map(FeatureRecipe::decodeChannel)
@@ -391,8 +411,6 @@ final class TrainingEditor {
         setVisible(missingChannels, !missing.isEmpty());
         var filters = features.getCheckModel().getCheckedItems();
         features.setTooltip(filters.isEmpty() ? null : new Tooltip(String.join(", ", filters.stream().map(Object::toString).toList())));
-        features.setTitle(filters.isEmpty() ? "Select features" : filters.size() == 1
-                ? filters.getFirst().toString() : filters.size() + " features");
     }
 
     static <T> ComboBox<T> combo(T[] values) {

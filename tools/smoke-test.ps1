@@ -20,7 +20,7 @@ try {
     $extensions = Join-Path $userDir 'extensions'
     $service = Join-Path $work 'smoke-jar\META-INF\services'
     New-Item -ItemType Directory -Force $extensions,$service | Out-Null
-    $jar = Get-ChildItem build/libs/qupath-ci-pixel-classifier-*.jar | Select-Object -First 1
+    $jar = Get-ChildItem build/libs/qupath-ci-pixel-classifier-*.jar | Sort-Object LastWriteTime -Descending | Select-Object -First 1
     Copy-Item -LiteralPath $jar.FullName -Destination $extensions
     'qupath.ext.cipixel.smoke.DesktopSmokeExtension' | Set-Content -Encoding utf8 (Join-Path $service 'qupath.lib.gui.extensions.QuPathExtension')
     & jar --create --file (Join-Path $extensions 'ci-desktop-smoke.jar') -C (Join-Path $work 'smoke-jar') META-INF -C build/classes/java/test qupath/ext/cipixel/smoke

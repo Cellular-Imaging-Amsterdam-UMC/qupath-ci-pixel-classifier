@@ -1,5 +1,6 @@
 package qupath.ext.cipixel;
 
+import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import qupath.lib.common.Version;
 import qupath.lib.gui.QuPathGUI;
@@ -13,9 +14,18 @@ public final class CiPixelClassifierExtension implements QuPathExtension {
         if (workspace != null)
             return;
         workspace = new ClassifierWorkspace(qupath);
-        var item = new MenuItem("CI Pixel Classifier…");
-        item.setOnAction(e -> workspace.show());
-        qupath.getMenu("Extensions", true).getItems().add(item);
+        var loader = new ClassifierLoader(qupath, workspace);
+        var menu = new Menu("CI Pixel Classifier");
+        var train = new MenuItem("Train classifier…");
+        train.setOnAction(e -> {
+            loader.hide();
+            workspace.show();
+        });
+        var load = new MenuItem("Load classifier…");
+        load.setOnAction(e -> workspace.switchTo(loader::show));
+        workspace.setLoader(() -> workspace.switchTo(loader::show));
+        menu.getItems().addAll(train, load);
+        qupath.getMenu("Extensions", true).getItems().add(menu);
     }
 
     @Override

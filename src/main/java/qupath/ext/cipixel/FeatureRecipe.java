@@ -12,6 +12,7 @@ import qupath.opencv.tools.MultiscaleFeatures.MultiscaleFeature;
 
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 record FeatureRecipe(
@@ -54,8 +55,12 @@ record FeatureRecipe(
         }
     }
 
+    static List<MultiscaleFeature> supportedFilters() {
+        return Arrays.stream(MultiscaleFeature.values()).filter(MultiscaleFeature::supports2D).toList();
+    }
+
     static FeatureRecipe defaults(ImageData<?> image) {
-        return new FeatureRecipe(rawChannels(image), List.of(MultiscaleFeature.GAUSSIAN), List.of(1.0),
+        return new FeatureRecipe(rawChannels(image), supportedFilters(), List.of(1.0),
                 LocalNormalization.NONE, 8.0);
     }
 

@@ -4,20 +4,21 @@ Train and reuse QuPath pixel classifiers in a single workspace. It follows QuPat
 
 ## Install
 
-Use **QuPath 0.7.0**. Download the JAR from [Releases](https://github.com/Cellular-Imaging-Amsterdam-UMC/qupath-ci-pixel-classifier/releases). Copy it into the `extensions` subfolder of the QuPath user directory, restart QuPath, and open **Extensions → CI Pixel Classifier**. In a portable setup, the user directory can point to a separate location outside the QuPath application folder.
+Use **QuPath 0.7.0**. Download the JAR from [Releases](https://github.com/Cellular-Imaging-Amsterdam-UMC/qupath-ci-pixel-classifier/releases). Copy it into the `extensions` subfolder of the QuPath user directory, restart QuPath, and open **Extensions → CI Pixel Classifier → Train classifier**. In a portable setup, the user directory can point to a separate location outside the QuPath application folder.
 
 ## Train, preview and save
 
 1. Open an image. Draw unlocked annotations for at least two different classes. The training panel shows how many annotations it found for each class. Select **Choose project images** to include annotated images from the same project.
-2. Pick a classifier, resolution, channels, feature filters and scales. **Model & resolution** shows the effective pixel size for calibrated images. **Advanced training settings** includes sample limits, class weighting, normalization, PCA and boundary handling.
-3. Select **Train classifier**. The QuPath viewer shows the prediction overlay. Set its region and opacity in **Preview**. Enable **Retrain when settings or annotations change** to update the prediction automatically.
-4. Use **Export JSON** for a standalone file, or save the classifier to the open project. Create objects, add measurements, classify detections or export the prediction image using QuPath’s standard tools.
+2. Pick a classifier, resolution, channels, feature filters and scales. **Model & resolution** shows the effective pixel size for calibrated images. New and reset setups select all ten 2D filters. Saved and imported selections are restored. **Advanced training settings** includes local normalization and scale, sample limits, class weighting, feature normalization, PCA and boundary handling.
+3. Select **Show filters** to preview the computed features in a QuPath window. Choose a feature channel in the popup and use **Refresh view** after moving to another region or changing settings.
+4. Select **Train classifier**. The training card shows how many sampled pixels each class contributed and its percentage of the training set. The QuPath viewer shows the prediction overlay. Set its region and opacity in **Preview**. Enable **Retrain when settings or annotations change** to update the prediction automatically.
+5. Use **Export JSON** for a standalone file, or save the classifier to the open project. Create objects, add measurements, classify detections or export the prediction image using QuPath’s standard tools.
 
-Changes are remembered in the active QuPath preference profile. Training annotations and classifiers are saved through their usual QuPath workflows. Save or export a trained model if you want to use it in a later session.
+Use **Collapse** in the window header to make room for annotating. **Expand** restores the previous window size and position. Changes are remembered in the active QuPath preference profile. Training annotations and classifiers are saved through their usual QuPath workflows. Save or export a trained model if you want to use it in a later session.
 
 ## Reuse a saved classifier
 
-Use **Load classifier → Import JSON** for a file, or **Open from project** for a classifier saved in the active project. You can preview and apply a compatible trained model immediately. QuPath’s standard multiscale pipeline also restores the saved calibration, ordered channels, filters, scales, local normalization, output type and the OpenCV parameters available in the file.
+Open **Extensions → CI Pixel Classifier → Load classifier**, then choose a project classifier or **Open JSON**. You can preview and apply a compatible model immediately. **Edit** closes the loader and opens the training workspace. QuPath’s standard multiscale pipeline restores the saved calibration, ordered channels, filters, scales, local normalization, output type and the OpenCV parameters available in the file.
 
 - Original JSON records the fitted model. Settings such as the random seed, sample limit and class weighting come from your current setup. For Random Trees, the imported tree count reflects the fitted forest. The original training limit and stopping threshold may be absent.
 - Imported fitted normalization and PCA can be reused as-is. Choose **Fit new preprocessing** or edit the feature inputs to fit preprocessing again on the current annotations.
@@ -42,7 +43,7 @@ For an end-to-end Windows desktop test, run the smoke test with the QuPath 0.7.0
     -Annotations 'C:\path\qp-lessons\resources\QP-ML-Train-Nuclei-Example\QP\data\3\data.qpdata'
 ```
 
-The smoke test imports a classifier created by stock QuPath’s training window, trains and saves a model with the extension, compares prediction pixels through QuPath’s own loader, captures both themes and verifies settings after relaunch. Its project and files are under `build/desktop-smoke-*`.
+The smoke test imports a classifier created by stock QuPath’s training window, trains and saves a model with the extension, compares prediction pixels through QuPath’s own loader, checks the loader-to-editor handoff and collapse toggle, captures the filter preview in both themes and verifies settings after relaunch. Its project and files are under `build/desktop-smoke-*`.
 
 ## References
 

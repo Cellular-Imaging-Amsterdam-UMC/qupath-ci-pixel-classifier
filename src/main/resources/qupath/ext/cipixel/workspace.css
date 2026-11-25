@@ -7,14 +7,14 @@
 }
 
 .ci-pixel .workspace-header {
-    -fx-padding: 19 22 17 22;
+    -fx-padding: 9 12 8 12;
     -fx-spacing: 10;
     -fx-background-color: -ci-surface;
     -fx-border-color: transparent transparent -ci-outline transparent;
 }
 
 .ci-pixel .workspace-title {
-    -fx-font-size: 26px;
+    -fx-font-size: 20px;
     -fx-font-weight: bold;
 }
 
@@ -26,11 +26,11 @@
 }
 
 .ci-pixel .workspace-body {
-    -fx-padding: 16 18 15 18;
+    -fx-padding: 8 10 9 10;
 }
 
 .ci-pixel .card {
-    -fx-padding: 13 14 14 14;
+    -fx-padding: 8 10 9 10;
     -fx-background-color: -ci-surface;
     -fx-background-radius: 9;
     -fx-border-color: -ci-outline;
@@ -38,7 +38,7 @@
 }
 
 .ci-pixel .card-heading {
-    -fx-font-size: 17px;
+    -fx-font-size: 15px;
     -fx-font-weight: bold;
     -fx-padding: 0 0 2 0;
 }
@@ -59,7 +59,7 @@
 }
 
 .ci-pixel .titled-pane > .title {
-    -fx-padding: 10 12 10 12;
+    -fx-padding: 6 9 6 9;
     -fx-font-weight: bold;
 }
 
@@ -92,7 +92,7 @@
 }
 
 .ci-pixel .workspace-footer {
-    -fx-padding: 11 19;
+    -fx-padding: 7 11;
     -fx-spacing: 12;
     -fx-background-color: -ci-surface;
     -fx-border-color: -ci-outline transparent transparent transparent;
@@ -100,7 +100,7 @@
 
 .ci-pixel .primary {
     -fx-font-weight: bold;
-    -fx-padding: 8 16;
+    -fx-padding: 6 12;
     -fx-background-color: #176d64;
     -fx-background-radius: 6;
     -fx-text-fill: white;
@@ -113,4 +113,31 @@
 .ci-pixel .primary:focused {
     -fx-border-color: -fx-focus-color;
     -fx-border-radius: 6;
+}
+
+.ci-pixel .filter-canvas {
+    -fx-background-color: -ci-subtle;
+    -fx-background-radius: 6;
+}
+
+.ci-pixel .sample-chart,
+.ci-pixel .sample-chart .chart-content,
+.ci-pixel .sample-legend,
+.ci-pixel .sample-legend > .viewport {
+    -fx-padding: 0;
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+}
+
+.ci-pixel .sample-chart .chart-pie {
+    -fx-border-color: -ci-surface;
+    -fx-border-width: 0.7;
+}
+
+.ci-pixel.compact .workspace-header {
+    -fx-padding: 6 9;
+}
+
+.ci-pixel.compact .workspace-title {
+    -fx-font-size: 16px;
 }
