@@ -57,4 +57,10 @@ The smoke test imports a classifier created by stock QuPath’s training window,
 
 [QuPath 0.7.0 source](https://github.com/qupath/qupath/tree/v0.7.0) · [QuPath Java API](https://qupath.github.io/javadoc/docs/) · [QuPath extension template](https://github.com/qupath/qupath-extension-template) · [QP Lessons](https://github.com/Cellular-Imaging-Amsterdam-UMC/qp-lessons)
 
-Licensed under GPL-3.0-or-later.
+## License
+
+The CI Pixel Classifier software is licensed under the [GNU General Public License, version 3 or later](LICENSE). It is based in part on QuPath. See [third-party software notices](THIRD-PARTY-NOTICES.txt) for the upstream copyright and source references, including the QuPath 0.8 development code used as a reference for features. The extension JAR includes both files under `META-INF`. You can also open **Extensions → CI Pixel Classifier → License and source** in QuPath.
+
+The [releases](https://github.com/Cellular-Imaging-Amsterdam-UMC/qupath-ci-pixel-classifier/releases) link to the tagged source used to build each binary. The build scripts in that source can rebuild the extension against the separately distributed [QuPath 0.7.0 source and libraries](https://github.com/qupath/qupath/tree/v0.7.0). The Gradle wrapper included with the source is [Apache-2.0 licensed](gradle/wrapper/LICENSE).
+
+The software license applies to the extension code and its build and test code. The tutorial website, video, subtitles and screenshots are outside that license. Copyright in *Pancreatic Islet Cells of the Mouse*, including the image as shown in the tutorial, remains with its creator. The image is used with the copyright holder’s permission. Contact the copyright holder about reusing the image.

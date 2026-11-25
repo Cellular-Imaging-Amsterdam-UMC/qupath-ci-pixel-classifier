@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: 2026 CI Pixel Classifier contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Upstream reference: QuPath 0.8 CurtainsCommand.
+// Adapted for CI Pixel Classifier on 2026-11-25. See THIRD-PARTY-NOTICES.txt.
+
 package qupath.ext.cipixel;
 
 import javafx.beans.property.DoubleProperty;

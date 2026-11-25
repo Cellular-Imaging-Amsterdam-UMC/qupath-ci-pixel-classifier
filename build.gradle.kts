@@ -1,10 +1,13 @@
+// SPDX-FileCopyrightText: 2026 CI Pixel Classifier contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 plugins {
     java
     id("org.openjfx.javafxplugin") version "0.1.0"
 }
 
 group = "nl.amsterdamumc"
-version = "0.3.1"
+version = "0.3.2"
 
 java {
     toolchain.languageVersion.set(JavaLanguageVersion.of(25))
@@ -44,7 +47,7 @@ tasks.test {
 }
 
 tasks.jar {
-    from("LICENSE") { into("META-INF") }
+    from(listOf("LICENSE", "THIRD-PARTY-NOTICES.txt")) { into("META-INF") }
     manifest.attributes(
         "Automatic-Module-Name" to "qupath.ext.cipixel",
         "Implementation-Title" to "CI Pixel Classifier",

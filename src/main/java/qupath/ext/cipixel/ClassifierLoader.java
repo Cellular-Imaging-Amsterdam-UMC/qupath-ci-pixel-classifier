@@ -1,3 +1,9 @@
+// SPDX-FileCopyrightText: 2026 CI Pixel Classifier contributors
+// SPDX-FileCopyrightText: 2018 - 2025 QuPath developers, The University of Edinburgh
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Upstream reference: QuPath 0.7.0 PixelClassifierPane and PixelClassifierUI.
+// Adapted for CI Pixel Classifier on 2026-11-25. See THIRD-PARTY-NOTICES.txt.
+
 package qupath.ext.cipixel;
 
 import javafx.beans.property.SimpleObjectProperty;

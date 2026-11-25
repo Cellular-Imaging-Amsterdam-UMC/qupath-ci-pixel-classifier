@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 CI Pixel Classifier contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package qupath.ext.cipixel.smoke;
 
 import javafx.animation.KeyFrame;
@@ -210,6 +213,18 @@ public final class DesktopSmokeExtension implements QuPathExtension {
         var after = toggle.localToScreen(toggle.getBoundsInLocal());
         require(Math.abs(before.getMinX() - after.getMinX()) < 1 && Math.abs(before.getMinY() - after.getMinY()) < 1,
                 "Collapse or expand moved the toggle on screen");
+    }
+
+    private void verifyLicenseNotice() {
+        extensionItem("License and source…").fire();
+        var window = visibleStage("CI Pixel Classifier · License and source");
+        var pane = (DialogPane) window.getScene().getRoot();
+        try {
+            require(pane.getHeaderText().contains("GNU General Public License"), "Missing license in the dialog");
+            require(pane.getContent().lookupAll(".hyperlink").size() == 2, "Missing license or source link");
+        } finally {
+            ((Button) pane.lookupButton(ButtonType.OK)).fire();
+        }
     }
 
     private void verifyDialogIcon() {
@@ -592,6 +607,8 @@ public final class DesktopSmokeExtension implements QuPathExtension {
 
     private void finish(String name) throws Exception {
         workspace.hide(); // Flush final preferences.
+        if ("trained".equals(name))
+            verifyLicenseNotice();
         Files.writeString(output.resolve(name + ".ok"), "PASS");
         qupath.getImageData().setChanged(false);
         var mainStage = qupath.getStage();

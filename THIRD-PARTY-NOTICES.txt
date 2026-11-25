@@ -1,0 +1,66 @@
+CI Pixel Classifier third-party software notices
+
+The CI Pixel Classifier extension is licensed under GPL-3.0-or-later.
+See LICENSE for the full text. In the released JAR these notices and
+the license are in META-INF.
+
+QuPath
+------
+
+The extension is built against QuPath 0.7.0 and runs in QuPath. Its
+training, feature configuration and viewer integration adapt or refer
+to the sources below. The extension implementations were adapted for
+QuPath 0.7.0 and modified on 2026-11-25. The upstream source files
+remain available under GPL-3.0-or-later.
+
+Copyright (C) 2014 - 2016 The Queen's University of Belfast, Northern Ireland
+Copyright (C) 2018 - 2020 QuPath developers, The University of Edinburgh
+Copyright (C) 2018 - 2025 QuPath developers, The University of Edinburgh
+Copyright (C) 2018 - 2026 QuPath developers, The University of Edinburgh
+
+QuPath 0.7.0 sources and license:
+  https://github.com/qupath/qupath/tree/v0.7.0
+  https://github.com/qupath/qupath/blob/v0.7.0/LICENSE
+
+Training, classified object actions and viewer overlay:
+  https://github.com/qupath/qupath/blob/v0.7.0/qupath-extension-processing/src/main/java/qupath/process/gui/commands/ml/PixelClassifierPane.java
+  https://github.com/qupath/qupath/blob/v0.7.0/qupath-extension-processing/src/main/java/qupath/process/gui/commands/ml/PixelClassifierTraining.java
+  https://github.com/qupath/qupath/blob/v0.7.0/qupath-extension-processing/src/main/java/qupath/process/gui/commands/ml/PixelClassifierUI.java
+  https://github.com/qupath/qupath/blob/v0.7.0/qupath-extension-processing/src/main/java/qupath/process/gui/commands/ObjectClassifierCommand.java
+  https://github.com/qupath/qupath/blob/v0.7.0/qupath-gui-fx/src/main/java/qupath/lib/gui/viewer/overlays/PixelClassificationOverlay.java
+
+QuPath 0.8 development reference, commit d91fdfb1b0c351d266d055aab7131bfd6e2bed99:
+  https://github.com/qupath/qupath/blob/d91fdfb1b0c351d266d055aab7131bfd6e2bed99/LICENSE
+  https://github.com/qupath/qupath/tree/d91fdfb1b0c351d266d055aab7131bfd6e2bed99/qupath-extension-processing/src/main/java/qupath/process/gui/commands/ml
+  https://github.com/qupath/qupath/tree/d91fdfb1b0c351d266d055aab7131bfd6e2bed99/qupath-core-processing/src/main/java/qupath/opencv/ml/pixel/train
+  https://github.com/qupath/qupath/blob/d91fdfb1b0c351d266d055aab7131bfd6e2bed99/qupath-gui-fx/src/main/java/qupath/lib/gui/commands/CurtainsCommand.java
+  https://github.com/qupath/qupath/blob/d91fdfb1b0c351d266d055aab7131bfd6e2bed99/qupath-core/src/main/java/qupath/lib/images/servers/PixelCalibration.java
+
+Those references cover the pixel classifier interface and multiscale
+feature selection, held-out validation, Random Trees feature importance,
+the comparison divider and the pixel calibration API.
+
+QuPath and its libraries are supplied separately by the host application.
+The extension JAR contains only extension classes and resources. It does
+not redistribute QuPath, QuPath FXExtras, JavaFX, SLF4J, or OpenCV binaries.
+QuPath FXExtras 0.3.0 is available under Apache-2.0. The QuPath 0.7.0
+distribution lists licenses for its other bundled libraries.
+  https://github.com/qupath/qupath-fxtras/blob/v0.3.0/LICENSE
+  https://github.com/qupath/qupath/tree/v0.7.0/qupath-app/licenses
+
+The extension releases provide corresponding source for each version.
+  https://github.com/Cellular-Imaging-Amsterdam-UMC/qupath-ci-pixel-classifier/releases
+
+Build tooling
+-------------
+
+The QuPath extension template is a project setup reference. Its README
+makes the template available under the Unlicense except for the Gradle
+wrapper.
+  https://github.com/qupath/qupath-extension-template/blob/bd825fc1b6d8ff25660e2fe853e97830b298986a/README.md#license
+
+The Gradle wrapper (gradlew, gradlew.bat and gradle/wrapper) is distributed
+under the Apache License, Version 2.0. The original notices are retained
+in the scripts and the wrapper JAR. See gradle/wrapper/LICENSE for the
+license text in the source distribution.
+  https://github.com/gradle/gradle

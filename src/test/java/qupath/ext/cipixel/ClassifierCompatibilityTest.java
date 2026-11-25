@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 CI Pixel Classifier contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package qupath.ext.cipixel;
 
 import com.google.gson.JsonParser;
