@@ -1,0 +1,116 @@
+.ci-pixel {
+    -ci-surface: derive(-fx-background, 4%);
+    -ci-outline: derive(-fx-background, -12%);
+    -ci-subtle: derive(-fx-background, -4%);
+    -fx-font-size: 13px;
+    -fx-background-color: -fx-background;
+}
+
+.ci-pixel .workspace-header {
+    -fx-padding: 19 22 17 22;
+    -fx-spacing: 10;
+    -fx-background-color: -ci-surface;
+    -fx-border-color: transparent transparent -ci-outline transparent;
+}
+
+.ci-pixel .workspace-title {
+    -fx-font-size: 26px;
+    -fx-font-weight: bold;
+}
+
+.ci-pixel .workspace-scroll,
+.ci-pixel .workspace-scroll > .viewport {
+    -fx-background-color: -fx-background;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.ci-pixel .workspace-body {
+    -fx-padding: 16 18 15 18;
+}
+
+.ci-pixel .card {
+    -fx-padding: 13 14 14 14;
+    -fx-background-color: -ci-surface;
+    -fx-background-radius: 9;
+    -fx-border-color: -ci-outline;
+    -fx-border-radius: 9;
+}
+
+.ci-pixel .card-heading {
+    -fx-font-size: 17px;
+    -fx-font-weight: bold;
+    -fx-padding: 0 0 2 0;
+}
+
+.ci-pixel .field-label {
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+.ci-pixel .note {
+    -fx-font-size: 12px;
+}
+
+.ci-pixel .model-status {
+    -fx-padding: 8 9 8 9;
+    -fx-background-color: -ci-subtle;
+    -fx-background-radius: 5;
+}
+
+.ci-pixel .titled-pane > .title {
+    -fx-padding: 10 12 10 12;
+    -fx-font-weight: bold;
+}
+
+.ci-pixel .titled-pane > .content {
+    -fx-padding: 12 13;
+}
+
+.ci-pixel .small-action {
+    -fx-font-size: 12px;
+}
+
+.ci-pixel .class-row {
+    -fx-background-color: -ci-subtle;
+    -fx-background-radius: 5;
+    -fx-padding: 4 8;
+}
+
+.ci-pixel .class-swatch {
+    -fx-background-color: -fx-accent;
+    -fx-background-radius: 20;
+    -fx-min-width: 9;
+    -fx-min-height: 9;
+    -fx-pref-width: 9;
+    -fx-pref-height: 9;
+    -fx-max-height: 9;
+}
+
+.ci-pixel .class-count {
+    -fx-font-weight: bold;
+}
+
+.ci-pixel .workspace-footer {
+    -fx-padding: 11 19;
+    -fx-spacing: 12;
+    -fx-background-color: -ci-surface;
+    -fx-border-color: -ci-outline transparent transparent transparent;
+}
+
+.ci-pixel .primary {
+    -fx-font-weight: bold;
+    -fx-padding: 8 16;
+    -fx-background-color: #176d64;
+    -fx-background-radius: 6;
+    -fx-text-fill: white;
+}
+
+.ci-pixel .primary:hover {
+    -fx-background-color: #12584f;
+}
+
+.ci-pixel .primary:focused {
+    -fx-border-color: -fx-focus-color;
+    -fx-border-radius: 6;
+}
