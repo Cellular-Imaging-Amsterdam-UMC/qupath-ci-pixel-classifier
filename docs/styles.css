@@ -65,7 +65,6 @@ video::cue { background: rgba(5, 11, 8, .88); color: white; }
 .chapters a:focus-visible { outline-offset: -3px; }
 .chapters a:hover, .chapters a[aria-current] { background: var(--raised); }
 .chapters time { font-variant-numeric: tabular-nums; color: var(--mint); font-size: .84rem; }
-.credit { margin: 1.1rem 0 0; font-size: .9rem; }
 .feature-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.18fr); align-items: center; gap: clamp(1.8rem, 5vw, 5rem); }
 .feature-row + .feature-row { padding-top: 2.3rem; margin-top: 2.3rem; border-top: 1px solid var(--rule); }
 .feature-row figure img { width: 100%; border: 1px solid var(--rule); border-radius: .5rem; background: #0d1410; }
