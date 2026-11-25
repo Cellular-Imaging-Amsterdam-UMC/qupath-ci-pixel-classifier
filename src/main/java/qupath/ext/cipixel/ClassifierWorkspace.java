@@ -20,6 +20,10 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.Slider;
 import javafx.scene.control.Tooltip;
+import javafx.scene.control.TextInputControl;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -32,7 +36,9 @@ import javafx.util.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import qupath.lib.classifiers.pixel.PixelClassifier;
+import qupath.lib.common.GeneralTools;
 import qupath.lib.gui.QuPathGUI;
+import qupath.lib.gui.tools.IconFactory;
 import qupath.lib.gui.dialogs.ProjectDialogs;
 import qupath.lib.gui.viewer.QuPathViewer;
 import qupath.lib.gui.viewer.RegionFilter.StandardRegionFilters;
@@ -62,6 +68,8 @@ import static qupath.ext.cipixel.TrainingEditor.*;
 final class ClassifierWorkspace {
     private static final Logger logger = LoggerFactory.getLogger(ClassifierWorkspace.class);
     private static final String TITLE = "CI Pixel Classifier";
+    private static final int MIN_EXPANDED_HEIGHT = 490;
+    private static final String RETRAIN_LABEL = "Retrain when settings or annotations change";
 
     private final QuPathGUI qupath;
     private final SettingsStore store = new SettingsStore();
@@ -94,6 +102,7 @@ final class ClassifierWorkspace {
     private Button export;
     private CheckBox showOverlay;
     private CheckBox autoTrain;
+    private VBox autoTrainSlot;
     private Slider opacity;
     private javafx.scene.control.ComboBox<StandardRegionFilters> previewRegion;
     private ProgressIndicator progress;
@@ -113,7 +122,7 @@ final class ClassifierWorkspace {
     private FeaturePreviewWindow featurePreview;
     private final ViewerPrediction prediction = new ViewerPrediction();
     private ToggleButton compact;
-    private double expandedX, expandedY, expandedWidth, expandedHeight;
+    private double expandedHeight;
     private boolean expandedMaximized;
 
     ClassifierWorkspace(QuPathGUI qupath) {
@@ -166,7 +175,7 @@ final class ClassifierWorkspace {
         stage.setTitle(TITLE);
         WindowStyle.decorate(stage);
         stage.setMinWidth(685);
-        stage.setMinHeight(490);
+        stage.setMinHeight(MIN_EXPANDED_HEIGHT);
 
         var title = new Label(TITLE);
         title.getStyleClass().add("workspace-title");
@@ -177,14 +186,17 @@ final class ClassifierWorkspace {
         load.setOnAction(e -> openLoader.run());
         compact = new ToggleButton("Collapse");
         compact.setId("training-layout-toggle");
-        compact.setMinWidth(Region.USE_PREF_SIZE);
+        compact.setMinWidth(85);
+        compact.setPrefWidth(85);
+        compact.setMaxWidth(85);
         compact.setTooltip(new Tooltip("Collapse the training window while annotating the image."));
         var reset = new MenuButton("Settings");
         addChoice(reset, "Reset training settings", () -> {
             applySettings(TrainingSettings.defaults(image.get()));
             trainingChanged();
         });
-        var header = row(new VBox(2, title, imageLabel), load, reset, compact);
+        var heading = WindowStyle.withIcon(new VBox(2, title, imageLabel), 26);
+        var header = row(heading, load, reset, compact);
         header.setAlignment(Pos.CENTER_LEFT);
         header.getStyleClass().add("workspace-header");
 
@@ -221,19 +233,21 @@ final class ClassifierWorkspace {
         export = new Button("Export JSON…");
         export.setId("export-classifier");
         export.setOnAction(e -> exportFile());
-        var footer = row(status, progress, export, train);
+        var undo = createUndoButton();
+        var footer = row(status, progress, undo, export, train);
         footer.setAlignment(Pos.CENTER_LEFT);
         footer.getStyleClass().add("workspace-footer");
 
         var root = new BorderPane(scroll, header, null, footer, null);
         double screenHeight = Screen.getPrimary().getVisualBounds().getHeight();
         var scene = WindowStyle.scene(root, 745, Math.max(480, Math.min(735, screenHeight - 70)));
+        scene.getAccelerators().put(new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN), () -> {
+            if (!(scene.getFocusOwner() instanceof TextInputControl))
+                undo.fire();
+        });
         compact.selectedProperty().addListener((v, old, collapsed) -> {
-            load.setVisible(!collapsed);
-            load.setManaged(!collapsed);
-            reset.setVisible(!collapsed);
-            reset.setManaged(!collapsed);
             setCollapsed(root, scroll, footer, collapsed);
+            moveAutoTrain(header, collapsed);
         });
         stage.setScene(scene);
         stage.setOnHidden(e -> hide());
@@ -270,7 +284,10 @@ final class ClassifierWorkspace {
         showOverlay.setId("show-prediction");
         showOverlay.setSelected(true);
         showOverlay.selectedProperty().addListener((v, old, next) -> refreshOverlay());
-        autoTrain = new CheckBox("Retrain when settings or annotations change");
+        autoTrain = new CheckBox(RETRAIN_LABEL);
+        autoTrain.setAccessibleText(RETRAIN_LABEL);
+        autoTrain.setTooltip(new Tooltip(RETRAIN_LABEL));
+        autoTrainSlot = new VBox(autoTrain);
         autoTrain.setId("auto-train");
         autoTrain.setWrapText(true);
         autoTrain.selectedProperty().addListener((v, old, next) -> {
@@ -304,7 +321,7 @@ final class ClassifierWorkspace {
         modelStatus = note("");
         modelStatus.setId("model-status");
         modelStatus.getStyleClass().add("model-status");
-        return card("Preview", modelStatus, showOverlay, autoTrain,
+        return card("Preview", modelStatus, showOverlay, autoTrainSlot,
                 field("Prediction region", previewRegion), field("Opacity", opacity, row(opacity, percent)));
     }
 
@@ -701,41 +718,64 @@ final class ClassifierWorkspace {
         featurePreview.show();
     }
 
+    private Button createUndoButton() {
+        var manager = qupath.getUndoRedoManager();
+        var undo = new Button();
+        undo.setId("undo-annotation");
+        undo.setAccessibleText("Undo");
+        undo.setGraphic(IconFactory.createNode(14, 14, IconFactory.PathIcons.UNDO));
+        String shortcut = GeneralTools.isMac() ? "Cmd+Z" : "Ctrl+Z";
+        undo.setTooltip(new Tooltip("Undo (" + shortcut + ")"));
+        undo.disableProperty().bind(manager.canUndo().not().or(image.isNull()));
+        undo.setOnAction(e -> manager.undoOnce());
+        return undo;
+    }
+
+    private void moveAutoTrain(HBox header, boolean collapsed) {
+        if (collapsed) {
+            autoTrainSlot.getChildren().clear();
+            autoTrain.setText("Auto retrain");
+            autoTrain.setWrapText(false);
+            header.getChildren().add(1, autoTrain);
+        } else {
+            header.getChildren().remove(autoTrain);
+            autoTrain.setText(RETRAIN_LABEL);
+            autoTrain.setWrapText(true);
+            autoTrainSlot.getChildren().setAll(autoTrain);
+        }
+    }
+
     private void setCollapsed(BorderPane root, ScrollPane scroll, HBox footer, boolean collapsed) {
         compact.setText(collapsed ? "Expand" : "Collapse");
         if (collapsed) {
             if (featurePreview != null)
                 featurePreview.hide();
-            expandedX = stage.getX();
-            expandedY = stage.getY();
-            expandedWidth = stage.getWidth();
             expandedHeight = stage.getHeight();
             expandedMaximized = stage.isMaximized();
-            var screens = Screen.getScreensForRectangle(expandedX, expandedY, expandedWidth, expandedHeight);
-            var bounds = (screens.isEmpty() ? Screen.getPrimary() : screens.getFirst()).getVisualBounds();
-            stage.setMaximized(false);
-            root.getStyleClass().add("compact");
+            double chrome = Math.max(0, expandedHeight - stage.getScene().getHeight());
+            double height = Math.ceil(chrome + root.getTop().getLayoutBounds().getHeight());
+            if (expandedMaximized) {
+                double x = stage.getX();
+                double y = stage.getY();
+                double width = stage.getWidth();
+                stage.setMaximized(false);
+                stage.setX(x);
+                stage.setY(y);
+                stage.setWidth(width);
+            }
             root.setCenter(null);
             root.setBottom(null);
-            stage.setMinWidth(325);
-            stage.setMinHeight(70);
-            stage.setWidth(335);
-            stage.setHeight(88);
-            stage.setX(bounds.getMaxX() - 350);
-            stage.setY(bounds.getMinY() + 18);
-            stage.setResizable(false);
+            stage.setMinHeight(height);
+            stage.setMaxHeight(height);
+            stage.setHeight(height);
         } else {
-            stage.setResizable(true);
-            root.getStyleClass().remove("compact");
+            stage.setMaxHeight(Double.MAX_VALUE);
+            stage.setMinHeight(MIN_EXPANDED_HEIGHT);
             root.setCenter(scroll);
             root.setBottom(footer);
-            stage.setMinWidth(685);
-            stage.setMinHeight(490);
-            stage.setX(expandedX);
-            stage.setY(expandedY);
-            stage.setWidth(expandedWidth);
             stage.setHeight(expandedHeight);
-            stage.setMaximized(expandedMaximized);
+            if (expandedMaximized)
+                stage.setMaximized(true);
         }
     }
 

@@ -143,9 +143,10 @@ final class ClassifierLoader {
         });
         var footer = row(status, edit);
         footer.setAlignment(Pos.CENTER_LEFT);
-        var root = new VBox(10, card("Load classifier",
-                field("Project classifier", projects, row(projects, reload, browse))),
-                card("Preview", show, field("Prediction region", region),
+        var sourceCard = card("Load classifier", field("Project classifier", projects, row(projects, reload, browse)));
+        var heading = WindowStyle.withIcon(sourceCard.getChildren().removeFirst(), 22);
+        sourceCard.getChildren().addFirst(heading);
+        var root = new VBox(10, sourceCard, card("Preview", show, field("Prediction region", region),
                         field("Opacity", opacity, row(opacity, opacityLabel))),
                 card("Apply classifier", actions, projectSave), footer);
         root.setPadding(new Insets(10));

@@ -11,7 +11,6 @@ import javafx.scene.image.PixelFormat;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.StackPane;
-import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.util.StringConverter;
 import org.bytedeco.opencv.opencv_core.Mat;
@@ -88,7 +87,7 @@ final class FeaturePreviewWindow {
         imageView.fitHeightProperty().bind(canvas.heightProperty().subtract(16));
         var header = row(band, refresh);
         header.setAlignment(Pos.CENTER_LEFT);
-        var top = new VBox(5, field("Feature channel", band, header));
+        var top = WindowStyle.withIcon(field("Feature channel", band, header), 22);
         var root = new BorderPane(canvas, top, null, status, null);
         root.setPadding(new Insets(12));
         BorderPane.setMargin(canvas, new Insets(9, 0, 7, 0));

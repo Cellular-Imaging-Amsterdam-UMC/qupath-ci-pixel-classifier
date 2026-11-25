@@ -14,7 +14,7 @@ Use **QuPath 0.7.0**. Download the JAR from [Releases](https://github.com/Cellul
 4. Select **Train classifier**. The training card shows how many sampled pixels each class contributed and its percentage of the training set. The QuPath viewer shows the prediction overlay. Set its region and opacity in **Preview**. Enable **Retrain when settings or annotations change** to update the prediction automatically.
 5. Use **Export JSON** for a standalone file, or save the classifier to the open project. Create objects, add measurements, classify detections or export the prediction image using QuPath’s standard tools.
 
-Use **Collapse** in the window header to make room for annotating. **Expand** restores the previous window size and position. Changes are remembered in the active QuPath preference profile. Training annotations and classifiers are saved through their usual QuPath workflows. Save or export a trained model if you want to use it in a later session.
+Use **Collapse** in the window header to make room for annotating. The window keeps its width and the button stays in place. **Auto retrain** moves into the header so it stays available while annotating. **Expand** restores the training controls. The Undo arrow beside **Export JSON** uses the active QuPath viewer’s Undo history (**Ctrl+Z**, or **Cmd+Z** on macOS). Changes are remembered in the active QuPath preference profile. Training annotations and classifiers are saved through their usual QuPath workflows. Save or export a trained model if you want to use it in a later session.
 
 ## Reuse a saved classifier
 

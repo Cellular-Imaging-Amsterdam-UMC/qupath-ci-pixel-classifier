@@ -1,11 +1,18 @@
 package qupath.ext.cipixel;
 
+import javafx.geometry.Insets;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.SnapshotParameters;
 import javafx.scene.canvas.Canvas;
+import javafx.geometry.Pos;
 import javafx.scene.control.Dialog;
+import javafx.scene.control.Label;
 import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 
@@ -27,11 +34,34 @@ final class WindowStyle {
     }
 
     static void decorate(Dialog<?> dialog) {
+        var pane = dialog.getDialogPane();
+        var header = pane.getHeader();
+        if (header == null) {
+            String text = pane.getHeaderText();
+            var label = new Label(text == null || text.isBlank() ? dialog.getTitle() : text);
+            label.setWrapText(true);
+            header = label;
+        }
+        var heading = withIcon(header, 22);
+        heading.setPadding(new Insets(8, 10, 5, 10));
+        pane.setHeader(heading);
         dialog.setOnShowing(e -> {
-            var window = dialog.getDialogPane().getScene().getWindow();
+            var window = pane.getScene().getWindow();
             if (window instanceof Stage stage)
                 decorate(stage);
         });
+    }
+
+    static HBox withIcon(Node content, int size) {
+        var mark = new ImageView(icon());
+        mark.setId("ci-window-icon");
+        mark.setFitWidth(size);
+        mark.setFitHeight(size);
+        mark.setPreserveRatio(true);
+        var line = new HBox(8, mark, content);
+        line.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(content, Priority.ALWAYS);
+        return line;
     }
 
     private static Image icon() {

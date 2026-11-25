@@ -3,10 +3,13 @@ package qupath.ext.cipixel.smoke;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
+import javafx.event.Event;
 import javafx.beans.property.ObjectProperty;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.DialogPane;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -18,6 +21,8 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.TitledPane;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 import javafx.util.Duration;
@@ -130,7 +135,7 @@ public final class DesktopSmokeExtension implements QuPathExtension {
 
         setTheme("Dark");
         showWorkspace();
-        require(!workspace.getIcons().isEmpty(), "Training window is missing its icon");
+        requireWindowIcon(workspace);
         var features = (org.controlsfx.control.CheckComboBox<?>) workspace.getScene().lookup("#feature-types");
         require(features.getCheckModel().getCheckedItems().size() == 10,
                 "A new workspace did not enable the ten 2D filters");
@@ -140,27 +145,111 @@ public final class DesktopSmokeExtension implements QuPathExtension {
         require(advanced.lookup("#local-scale") != null, "Local scale is not in advanced training settings");
         advanced.setExpanded(false);
 
+        verifyDialogIcon();
+        verifyUndo();
         var toggle = (ToggleButton) workspace.getScene().lookup("#training-layout-toggle");
         double width = workspace.getWidth();
         double height = workspace.getHeight();
+        double x = workspace.getX();
+        double y = workspace.getY();
+        var buttonBounds = toggle.localToScreen(toggle.getBoundsInLocal());
+        var autoRetrain = (CheckBox) workspace.getScene().lookup("#auto-train");
+        var previewSlot = autoRetrain.getParent();
         toggle.fire();
         await(() -> workspace.getHeight() < 120, () -> {
             require(workspace.getScene().lookup("#training-body") == null, "Collapsed window still shows the editor");
-            require(workspace.getWidth() < 400, "Collapsed window did not shrink");
+            requireGeometry(x, y, width, toggle, buttonBounds);
+            require(workspace.getScene().lookup("#auto-train") == autoRetrain
+                            && autoRetrain.getParent().getStyleClass().contains("workspace-header"),
+                    "The retrain checkbox should move to the collapsed header");
+            autoRetrain.fire();
             snapshot("workspace-collapsed.png");
             toggle.fire();
             await(() -> Math.abs(workspace.getHeight() - height) < 2, () -> {
-                require(Math.abs(workspace.getWidth() - width) < 2, "Expanded window did not restore the width");
+                requireGeometry(x, y, width, toggle, buttonBounds);
+                require(autoRetrain.getParent() == previewSlot && autoRetrain.isSelected(),
+                        "The retrain checkbox should return to Preview with its value preserved");
+                autoRetrain.fire();
                 openFromLoader();
             });
         });
+    }
+
+    private void requireGeometry(double x, double y, double width, ToggleButton toggle, javafx.geometry.Bounds before) {
+        require(Math.abs(workspace.getWidth() - width) < 1, "Collapse or expand changed the window width");
+        require(Math.abs(workspace.getX() - x) < 1 && Math.abs(workspace.getY() - y) < 1,
+                "Collapse or expand moved the window");
+        var after = toggle.localToScreen(toggle.getBoundsInLocal());
+        require(Math.abs(before.getMinX() - after.getMinX()) < 1 && Math.abs(before.getMinY() - after.getMinY()) < 1,
+                "Collapse or expand moved the toggle on screen");
+    }
+
+    private void verifyDialogIcon() {
+        var parameters = workspace.getScene().getRoot().lookupAll(".button").stream()
+                .filter(Button.class::isInstance).map(Button.class::cast)
+                .filter(b -> "Parameters…".equals(b.getText())).findFirst().orElseThrow();
+        var checked = new java.util.concurrent.atomic.AtomicBoolean();
+        Platform.runLater(() -> safely(() -> {
+            var window = visibleStage("Classifier parameters");
+            var pane = (DialogPane) window.getScene().lookup(".dialog-pane");
+            try {
+                requireWindowIcon(window);
+                snapshot(window, "parameters-dark.png");
+                checked.set(true);
+            } finally {
+                ((Button) pane.lookupButton(ButtonType.CANCEL)).fire();
+            }
+        }));
+        parameters.fire();
+        require(checked.get(), "Parameters dialog was not verified");
+    }
+
+    private void verifyUndo() {
+        var undo = (Button) workspace.getScene().lookup("#undo-annotation");
+        require(undo.getGraphic() != null, "Undo arrow is missing");
+        require(undo.getTooltip().getText().contains("Ctrl+Z"), "Undo tooltip does not mention Ctrl+Z");
+        var hierarchy = qupath.getImageData().getHierarchy();
+        int original = hierarchy.getAnnotationObjects().size();
+        var roi = ROIs.createRectangleROI(15, 15, 10, 10, ImagePlane.getDefaultPlane());
+        var label = PathClass.fromString("Undo test");
+        hierarchy.addObject(PathObjects.createAnnotationObject(roi, label));
+        require(hierarchy.getAnnotationObjects().size() == original + 1 && !undo.isDisabled(),
+                "Native Undo did not enable after annotating");
+        undo.fire();
+        require(hierarchy.getAnnotationObjects().size() == original && qupath.getUndoRedoManager().canRedo().get(),
+                "Undo did not restore QuPath's prior annotation hierarchy");
+
+        hierarchy.addObject(PathObjects.createAnnotationObject(roi, label));
+        var downsample = (TextField) workspace.getScene().lookup("#downsample");
+        String startValue = downsample.getText();
+        downsample.requestFocus();
+        downsample.replaceText(0, downsample.getLength(), "8");
+        Event.fireEvent(downsample, undoKey());
+        require(downsample.getText().equals(startValue) && hierarchy.getAnnotationObjects().size() == original + 1,
+                "Ctrl+Z while editing a field should use the field's text Undo");
+
+        undo.requestFocus();
+        Event.fireEvent(undo, undoKey());
+        require(hierarchy.getAnnotationObjects().size() == original,
+                "Ctrl+Z did not undo the annotation in the training window");
+    }
+
+    private static KeyEvent undoKey() {
+        return new KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.Z, false, true, false, false);
+    }
+
+    private static void requireWindowIcon(Stage window) {
+        var icon = window.getScene().lookup("#ci-window-icon");
+        require(!window.getIcons().isEmpty() && icon instanceof ImageView view && view.isVisible()
+                        && view.getImage() != null && view.getFitWidth() >= 20,
+                "Missing visible extension icon in " + window.getTitle());
     }
 
     private void openFromLoader() {
         extensionItem("Load classifier…").fire();
         var loader = visibleStage("CI Pixel Classifier · Load classifier");
         require(!workspace.isShowing(), "Training window stayed visible behind the loader");
-        require(!loader.getIcons().isEmpty(), "Loader is missing its icon");
+        requireWindowIcon(loader);
         loader.getScene().getRoot().applyCss();
         var projectClassifiers = (ComboBox<?>) loader.getScene().lookup("#load-project-classifier");
         projectClassifiers.getSelectionModel().select(0);
@@ -187,7 +276,7 @@ public final class DesktopSmokeExtension implements QuPathExtension {
     private void verifyFeaturePreview() {
         ((Button) workspace.getScene().lookup("#show-filters")).fire();
         var preview = visibleStage("CI Pixel Classifier · Filter preview");
-        require(!preview.getIcons().isEmpty(), "Filter preview is missing its icon");
+        requireWindowIcon(preview);
         var imageView = (ImageView) preview.getScene().lookup("#preview-feature-image");
         await(() -> imageView.getImage() != null, () -> {
             require(imageView.getImage().getWidth() > 0, "Feature preview returned an empty image");
